@@ -1,9 +1,12 @@
+```css
 /* =========================================================
    SENTINEL — CYBER INTELLIGENCE UI
 ========================================================= */
 
 * {
     box-sizing: border-box;
+    margin: 0;
+    padding: 0;
 }
 
 html {
@@ -11,11 +14,11 @@ html {
 }
 
 body {
-    margin: 0;
     font-family: Arial, Helvetica, sans-serif;
-    background: #050b14;
-    color: #e8f7ff;
+    background: #050914;
+    color: #e8f1ff;
     min-height: 100vh;
+    line-height: 1.5;
 }
 
 button,
@@ -32,9 +35,8 @@ button {
     display: none !important;
 }
 
-
 /* =========================================================
-   NAVIGATION
+   NAVBAR
 ========================================================= */
 
 .navbar {
@@ -44,41 +46,45 @@ button {
     display: flex;
     align-items: center;
     justify-content: space-between;
+    gap: 20px;
     padding: 16px 28px;
-    background: rgba(5, 11, 20, 0.96);
+    background: rgba(5, 9, 20, 0.96);
     border-bottom: 1px solid rgba(53, 217, 255, 0.18);
-    backdrop-filter: blur(12px);
+    backdrop-filter: blur(14px);
 }
 
-.nav-logo {
+.logo {
+    color: #35d9ff;
     font-size: 22px;
     font-weight: 800;
-    color: #35d9ff;
     letter-spacing: 2px;
+    white-space: nowrap;
 }
 
 .nav-links {
     display: flex;
-    gap: 8px;
+    align-items: center;
+    justify-content: center;
     flex-wrap: wrap;
+    gap: 8px;
 }
 
 .nav-links button {
-    background: transparent;
     border: 1px solid transparent;
-    color: #9db2c8;
-    padding: 9px 12px;
+    background: transparent;
+    color: #9fb0c8;
+    padding: 9px 13px;
     border-radius: 8px;
-    font-weight: 700;
     font-size: 12px;
+    font-weight: 700;
     letter-spacing: .5px;
 }
 
 .nav-links button:hover {
     color: #35d9ff;
-    border-color: rgba(53, 217, 255, .3);
+    border-color: rgba(53, 217, 255, .25);
+    background: rgba(53, 217, 255, .06);
 }
-
 
 /* =========================================================
    PAGES
@@ -86,267 +92,388 @@ button {
 
 .page {
     display: none;
-    min-height: calc(100vh - 70px);
+    min-height: calc(100vh - 75px);
 }
 
 .page.active {
     display: block;
 }
 
+.page-inner,
 .container {
-    width: min(1180px, 92%);
-    margin: auto;
+    width: min(1180px, calc(100% - 40px));
+    margin: 0 auto;
+    padding: 45px 0;
 }
-
-section {
-    padding: 70px 0;
-}
-
 
 /* =========================================================
    HERO
 ========================================================= */
 
 .hero {
+    width: min(1180px, calc(100% - 40px));
+    margin: 0 auto;
     min-height: 620px;
     display: flex;
+    flex-direction: column;
+    justify-content: center;
     align-items: center;
     text-align: center;
-    background:
-        radial-gradient(circle at 50% 35%, rgba(53, 217, 255, .12), transparent 35%),
-        #050b14;
+    padding: 70px 0;
+}
+
+.hero-badge {
+    display: inline-block;
+    padding: 7px 14px;
+    border: 1px solid rgba(53, 217, 255, .35);
+    border-radius: 999px;
+    color: #35d9ff;
+    background: rgba(53, 217, 255, .06);
+    font-size: 11px;
+    font-weight: 800;
+    letter-spacing: 1.5px;
+    margin-bottom: 22px;
 }
 
 .hero h1 {
-    margin: 0;
-    font-size: clamp(44px, 8vw, 90px);
-    letter-spacing: 6px;
-    color: #35d9ff;
-    text-shadow: 0 0 30px rgba(53, 217, 255, .35);
+    font-size: clamp(42px, 7vw, 82px);
+    line-height: 1;
+    letter-spacing: -2px;
+    color: #f2f8ff;
 }
 
-.hero h2 {
-    color: #fff;
-    margin: 15px 0;
+.hero h1 span {
+    color: #35d9ff;
 }
 
 .hero p {
-    max-width: 700px;
-    margin: 20px auto;
-    color: #91a6bb;
-    line-height: 1.7;
+    max-width: 720px;
+    margin: 22px auto 30px;
+    color: #8ea3bd;
+    font-size: 17px;
 }
 
-
-/* =========================================================
-   CARDS
-========================================================= */
-
-.card,
-.feature-card,
-.scanner-card,
-.dashboard-card,
-.game-card {
-    background: rgba(10, 22, 36, .92);
-    border: 1px solid rgba(53, 217, 255, .16);
-    border-radius: 16px;
-    padding: 24px;
-    box-shadow: 0 12px 40px rgba(0, 0, 0, .25);
+.hero-actions {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: center;
+    gap: 12px;
 }
 
-.feature-grid {
-    display: grid;
-    grid-template-columns: repeat(3, 1fr);
-    gap: 18px;
+.hero-stats {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: center;
+    gap: 45px;
+    margin-top: 45px;
 }
 
-.feature-card h3 {
+.hero-stats div {
+    text-align: center;
+}
+
+.hero-stats strong {
+    display: block;
     color: #35d9ff;
+    font-size: 26px;
 }
 
-.feature-card p {
-    color: #91a6bb;
-    line-height: 1.6;
+.hero-stats span {
+    color: #71859f;
+    font-size: 11px;
 }
-
 
 /* =========================================================
    BUTTONS
 ========================================================= */
 
 .primary-btn,
-.scan-btn,
-.game-btn {
-    border: 0;
+.secondary-btn,
+.danger-btn {
     border-radius: 9px;
-    padding: 13px 20px;
-    background: #35d9ff;
-    color: #031019;
+    padding: 12px 19px;
     font-weight: 800;
-    cursor: pointer;
-    transition: .2s;
+    border: 1px solid;
+    transition: .2s ease;
 }
 
-.primary-btn:hover,
-.scan-btn:hover,
-.game-btn:hover {
+.primary-btn {
+    background: #35d9ff;
+    color: #031018;
+    border-color: #35d9ff;
+}
+
+.primary-btn:hover {
     transform: translateY(-2px);
-    box-shadow: 0 0 22px rgba(53, 217, 255, .25);
+    box-shadow: 0 0 25px rgba(53, 217, 255, .25);
 }
 
-button:disabled {
-    opacity: .55;
-    cursor: not-allowed;
+.secondary-btn {
+    background: rgba(255,255,255,.03);
+    color: #dbe9fa;
+    border-color: #263951;
 }
 
+.secondary-btn:hover {
+    border-color: #35d9ff;
+    color: #35d9ff;
+}
+
+.danger-btn {
+    background: #7b1420;
+    color: white;
+    border-color: #e94555;
+}
+
+.danger-btn:hover {
+    background: #a91d2c;
+}
 
 /* =========================================================
-   FORMS
+   SECTION HEADERS
 ========================================================= */
+
+.section-header {
+    text-align: center;
+    margin-bottom: 32px;
+}
+
+.section-header h2 {
+    font-size: 34px;
+    margin-bottom: 8px;
+}
+
+.section-header p {
+    color: #8195ae;
+}
+
+/* =========================================================
+   FEATURE CARDS
+========================================================= */
+
+.features-grid,
+.card-grid {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 18px;
+}
+
+.card,
+.feature-card,
+.panel {
+    background: rgba(11, 20, 35, .86);
+    border: 1px solid #1b2d44;
+    border-radius: 14px;
+    padding: 24px;
+    box-shadow: 0 12px 35px rgba(0,0,0,.18);
+}
+
+.feature-card {
+    min-height: 170px;
+}
+
+.feature-card:hover {
+    border-color: rgba(53, 217, 255, .35);
+    transform: translateY(-2px);
+}
+
+.feature-card h3 {
+    color: #35d9ff;
+    margin-bottom: 8px;
+}
+
+.feature-card p,
+.card p {
+    color: #879bb4;
+}
+
+/* =========================================================
+   SCANNER
+========================================================= */
+
+.scanner-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 20px;
+}
+
+.input-group {
+    margin-top: 18px;
+}
+
+.input-group label {
+    display: block;
+    margin-bottom: 8px;
+    color: #a8bad0;
+    font-size: 13px;
+    font-weight: 700;
+}
 
 input,
 textarea {
     width: 100%;
-    background: #07121f;
-    color: #e8f7ff;
-    border: 1px solid rgba(53, 217, 255, .22);
-    border-radius: 10px;
-    padding: 14px;
+    background: #07111f;
+    color: #edf6ff;
+    border: 1px solid #263951;
+    border-radius: 9px;
+    padding: 13px 14px;
     outline: none;
 }
 
 input:focus,
 textarea:focus {
     border-color: #35d9ff;
-    box-shadow: 0 0 15px rgba(53, 217, 255, .12);
+    box-shadow: 0 0 0 3px rgba(53,217,255,.08);
 }
 
 textarea {
-    min-height: 180px;
+    min-height: 160px;
     resize: vertical;
 }
 
+.scanner-button {
+    width: 100%;
+    margin-top: 14px;
+}
 
 /* =========================================================
-   SCANNER
+   PROGRESS
 ========================================================= */
 
-.scanner-layout {
-    display: grid;
-    grid-template-columns: 1fr 1fr;
-    gap: 22px;
-}
-
-.scanner-card h2 {
-    color: #35d9ff;
-}
-
-.scanner-card label {
-    display: block;
-    margin-bottom: 9px;
-    color: #b8c8d8;
-    font-weight: 700;
-}
-
-.progress {
+.progress-box {
     margin-top: 20px;
-    padding: 15px;
-    border-radius: 10px;
-    background: #07121f;
-    border: 1px solid rgba(53, 217, 255, .12);
+}
+
+.progress-info {
+    display: flex;
+    justify-content: space-between;
+    color: #8297b1;
+    font-size: 12px;
+    margin-bottom: 8px;
 }
 
 .progress-track {
     height: 8px;
-    margin-top: 10px;
-    background: #162333;
-    border-radius: 20px;
+    background: #111d2c;
+    border-radius: 999px;
     overflow: hidden;
 }
 
-.progress-fill {
-    width: 0;
+#website-progress-fill,
+#message-progress-fill,
+#game-progress {
     height: 100%;
+    width: 0;
     background: #35d9ff;
+    border-radius: inherit;
     transition: width .25s ease;
 }
 
-.result {
-    margin-top: 20px;
-    padding: 20px;
-    border-radius: 12px;
-    background: #07121f;
-    border: 1px solid rgba(53, 217, 255, .18);
+/* =========================================================
+   RESULTS
+========================================================= */
+
+.result-card {
+    margin-top: 22px;
+    background: #081321;
+    border: 1px solid #21364f;
+    border-radius: 14px;
+    padding: 24px;
 }
 
-.result h3 {
+.result-top {
+    display: flex;
+    justify-content: space-between;
+    gap: 20px;
+    align-items: center;
+    flex-wrap: wrap;
+}
+
+.score {
+    font-size: 46px;
+    font-weight: 900;
     color: #35d9ff;
 }
 
-.result ul {
-    color: #b7c8d8;
-    line-height: 1.7;
+.risk-level {
+    font-weight: 900;
+    letter-spacing: .8px;
 }
 
-.risk-meter {
-    height: 10px;
-    background: #172432;
-    border-radius: 20px;
+.result-card h3 {
+    margin: 20px 0 10px;
+    color: #cfe2f8;
+}
+
+.result-card ul {
+    padding-left: 22px;
+}
+
+.result-card li {
+    margin: 7px 0;
+    color: #91a6bf;
+}
+
+.meter {
+    height: 9px;
+    margin: 16px 0;
+    background: #121f30;
+    border-radius: 999px;
     overflow: hidden;
-    margin: 15px 0;
 }
 
-.risk-meter-fill {
-    width: 0;
+.meter-fill {
     height: 100%;
+    width: 0;
     background: #35d9ff;
     transition: width .5s ease;
 }
-
 
 /* =========================================================
    SOCIAL
 ========================================================= */
 
-.screenshot-area {
+.upload-box {
+    border: 1px dashed #2b4966;
+    border-radius: 12px;
+    padding: 30px;
     text-align: center;
-    padding: 40px 0;
+    background: rgba(53,217,255,.025);
+}
+
+.upload-box input[type="file"] {
+    border: none;
+    background: transparent;
+    margin-bottom: 15px;
 }
 
 #selected-file {
-    margin: 12px 0;
     color: #35d9ff;
+    font-size: 13px;
+    margin: 10px 0;
 }
-
 
 /* =========================================================
    GAME
 ========================================================= */
 
-.game-wrap {
+.game-wrapper {
     max-width: 850px;
     margin: auto;
 }
 
-.game-header {
-    display: flex;
-    justify-content: space-between;
-    gap: 12px;
-    flex-wrap: wrap;
-}
-
 .game-stats {
     display: grid;
-    grid-template-columns: repeat(4, 1fr);
+    grid-template-columns: repeat(5, 1fr);
     gap: 10px;
     margin: 20px 0;
 }
 
 .game-stat {
-    background: #07121f;
-    border: 1px solid rgba(53, 217, 255, .14);
-    padding: 15px;
+    background: #091523;
+    border: 1px solid #1d3148;
     border-radius: 10px;
+    padding: 12px;
     text-align: center;
 }
 
@@ -356,33 +483,59 @@ textarea {
     font-size: 20px;
 }
 
+.game-stat span {
+    color: #71869f;
+    font-size: 10px;
+}
+
+.question-card {
+    margin-top: 20px;
+}
+
+#question-text {
+    font-size: 22px;
+    line-height: 1.45;
+    margin: 20px 0;
+}
+
 #question-options {
     display: grid;
-    gap: 12px;
-    margin-top: 25px;
+    gap: 10px;
 }
 
 #question-options button {
     text-align: left;
-    padding: 16px;
-    border-radius: 10px;
-    border: 1px solid rgba(53, 217, 255, .18);
-    background: #07121f;
-    color: #dcecf8;
+    padding: 15px;
+    border-radius: 9px;
+    border: 1px solid #253b54;
+    background: #091523;
+    color: #dceaff;
 }
 
-#question-options button:hover {
+#question-options button:hover:not(:disabled) {
     border-color: #35d9ff;
-    background: #0a1b2b;
+    background: rgba(53,217,255,.07);
 }
 
-.answer-feedback {
+#question-options button:disabled {
+    opacity: .7;
+    cursor: default;
+}
+
+#answer-feedback {
     min-height: 30px;
-    margin-top: 18px;
+    margin-top: 15px;
     color: #35d9ff;
     font-weight: 700;
 }
 
+#mistake-review {
+    margin-top: 20px;
+    padding: 18px;
+    border-radius: 10px;
+    background: #091523;
+    border: 1px solid #1d3148;
+}
 
 /* =========================================================
    DASHBOARD
@@ -395,16 +548,22 @@ textarea {
 }
 
 .dashboard-card {
-    text-align: center;
+    background: #091523;
+    border: 1px solid #1d3148;
+    border-radius: 12px;
+    padding: 22px;
 }
 
 .dashboard-card strong {
     display: block;
     color: #35d9ff;
     font-size: 30px;
-    margin-top: 8px;
 }
 
+.dashboard-card span {
+    color: #788da7;
+    font-size: 12px;
+}
 
 /* =========================================================
    AI BALL
@@ -414,64 +573,32 @@ textarea {
     position: fixed !important;
     right: 28px !important;
     bottom: 28px !important;
-
     width: 72px !important;
     height: 72px !important;
-
     display: flex !important;
     align-items: center !important;
     justify-content: center !important;
-
-    border: 2px solid #35d9ff !important;
-    border-radius: 50% !important;
-
-    background:
-        radial-gradient(circle, #123b50 0%, #071725 55%, #030a12 100%) !important;
-
-    color: #35d9ff !important;
-
     z-index: 99999 !important;
-
-    opacity: 1 !important;
+    cursor: pointer !important;
     visibility: visible !important;
-
+    opacity: 1 !important;
+    border-radius: 50% !important;
+    border: 2px solid #35d9ff !important;
+    background: #071827 !important;
+    color: #35d9ff !important;
     box-shadow:
-        0 0 12px rgba(53, 217, 255, .7),
-        0 0 35px rgba(53, 217, 255, .25);
+        0 0 12px rgba(53,217,255,.55),
+        0 0 35px rgba(53,217,255,.18);
+}
 
-    animation: aiPulse 2s infinite;
+.ai-ball-core {
+    font-size: 30px;
+    font-weight: 900;
 }
 
 #ai-ball:hover {
     transform: scale(1.08);
 }
-
-#ai-ball .ai-ball-core {
-    font-size: 30px;
-    line-height: 1;
-    color: #35d9ff;
-    text-shadow: 0 0 15px #35d9ff;
-}
-
-#ai-ball * {
-    visibility: visible !important;
-    opacity: 1 !important;
-}
-
-@keyframes aiPulse {
-    0%, 100% {
-        box-shadow:
-            0 0 12px rgba(53, 217, 255, .7),
-            0 0 35px rgba(53, 217, 255, .25);
-    }
-
-    50% {
-        box-shadow:
-            0 0 22px rgba(53, 217, 255, .95),
-            0 0 55px rgba(53, 217, 255, .35);
-    }
-}
-
 
 /* =========================================================
    AI POPUP
@@ -479,160 +606,144 @@ textarea {
 
 #ai-chat-popup {
     position: fixed;
-    right: 110px;
-    bottom: 42px;
-
+    right: 30px;
+    bottom: 112px;
     z-index: 100000;
-
-    padding: 12px 16px;
+    display: flex;
+    align-items: center;
+    gap: 15px;
+    padding: 13px 17px;
+    border: 1px solid #28516b;
     border-radius: 10px;
-
-    background: #071725;
-    border: 1px solid #35d9ff;
-
+    background: #091522;
     color: #35d9ff;
-    font-size: 12px;
-    font-weight: 800;
-
-    box-shadow: 0 0 20px rgba(53, 217, 255, .25);
+    font-size: 11px;
+    font-weight: 900;
+    box-shadow: 0 15px 40px rgba(0,0,0,.35);
 }
 
 #ai-popup-close {
-    margin-left: 12px;
-    border: 0;
+    border: none;
     background: transparent;
-    color: #91a6bb;
-    font-size: 18px;
+    color: #8ca0b9;
+    font-size: 20px;
+    cursor: pointer;
 }
-
 
 /* =========================================================
    AI CHAT
 ========================================================= */
 
+.ai-chat,
 #ai-chat {
     position: fixed;
     right: 28px;
-    bottom: 115px;
-
-    width: min(390px, calc(100vw - 36px));
-    max-height: 600px;
-
+    bottom: 28px;
+    width: min(400px, calc(100vw - 30px));
+    height: 560px;
     z-index: 100001;
-
     display: none;
-
-    overflow: hidden;
-
-    background: #06111d;
-    border: 1px solid rgba(53, 217, 255, .35);
+    flex-direction: column;
+    background: #07111e;
+    border: 1px solid #24435d;
     border-radius: 16px;
-
-    box-shadow: 0 20px 60px rgba(0, 0, 0, .55);
+    overflow: hidden;
+    box-shadow: 0 25px 70px rgba(0,0,0,.55);
 }
 
 #ai-chat.open {
     display: flex;
-    flex-direction: column;
 }
 
-.chat-header {
-    padding: 16px;
-    background: #071a29;
-    border-bottom: 1px solid rgba(53, 217, 255, .18);
-
+.ai-chat-header {
     display: flex;
-    align-items: center;
     justify-content: space-between;
+    align-items: center;
+    padding: 15px 17px;
+    background: #0b1a2a;
+    border-bottom: 1px solid #1e344b;
 }
 
-.chat-header strong {
+.ai-chat-header strong {
     color: #35d9ff;
 }
 
-.chat-header button {
-    border: 0;
+.ai-chat-header button {
+    border: none;
     background: transparent;
-    color: #91a6bb;
+    color: #91a5bc;
     font-size: 20px;
 }
 
 #chat-messages {
-    min-height: 300px;
-    max-height: 400px;
+    flex: 1;
     overflow-y: auto;
     padding: 16px;
 }
 
 .chat-message {
     display: flex;
-    gap: 10px;
+    gap: 9px;
     margin-bottom: 14px;
-}
-
-.chat-message .avatar {
-    width: 32px;
-    height: 32px;
-    flex-shrink: 0;
-
-    display: flex;
-    align-items: center;
-    justify-content: center;
-
-    border-radius: 50%;
-    background: #0b2435;
-}
-
-.chat-message .message {
-    max-width: 80%;
-    padding: 10px 12px;
-    border-radius: 10px;
-    background: #0b1d2c;
-    color: #c8d7e4;
-}
-
-.chat-message .message strong {
-    display: block;
-    margin-bottom: 5px;
-    color: #35d9ff;
-    font-size: 11px;
-}
-
-.chat-message .message p {
-    margin: 0;
-    line-height: 1.5;
 }
 
 .chat-message.user {
     flex-direction: row-reverse;
 }
 
-.chat-message.user .message {
-    background: #123449;
+.chat-message .avatar {
+    flex: 0 0 32px;
+    height: 32px;
+    display: grid;
+    place-items: center;
+    border-radius: 50%;
+    background: #10253a;
+}
+
+.chat-message .message {
+    max-width: 82%;
+    padding: 10px 12px;
+    border-radius: 10px;
+    background: #0c1b2c;
+    border: 1px solid #1d344b;
+}
+
+.chat-message .message strong {
+    display: block;
+    color: #35d9ff;
+    font-size: 10px;
+    margin-bottom: 4px;
+}
+
+.chat-message .message p {
+    color: #b6c7da;
+    white-space: pre-wrap;
+    font-size: 13px;
 }
 
 .chat-input-area {
     display: flex;
     gap: 8px;
     padding: 12px;
-    border-top: 1px solid rgba(53, 217, 255, .15);
+    border-top: 1px solid #1d344b;
 }
 
 #chat-input {
-    min-height: 45px;
+    min-height: 44px;
     max-height: 100px;
     resize: none;
 }
 
 #chat-send {
-    width: 48px;
-    border: 0;
-    border-radius: 9px;
-    background: #35d9ff;
-    color: #031019;
-    font-weight: 900;
+    flex: 0 0 auto;
+    padding: 0 15px;
 }
 
+#chat-typing {
+    padding: 0 16px 8px;
+    color: #35d9ff;
+    font-size: 11px;
+}
 
 /* =========================================================
    TOAST
@@ -642,27 +753,20 @@ textarea {
     position: fixed;
     left: 50%;
     bottom: 25px;
-
     transform: translate(-50%, 30px);
-
-    z-index: 200000;
-
     opacity: 0;
     pointer-events: none;
-
+    z-index: 110000;
     display: flex;
-    gap: 10px;
     align-items: center;
-
-    padding: 13px 18px;
-
-    background: #071725;
-    border: 1px solid rgba(53, 217, 255, .3);
-    border-radius: 10px;
-
-    color: #dff6ff;
-
-    transition: .3s;
+    gap: 9px;
+    padding: 12px 17px;
+    border-radius: 9px;
+    background: #0b1928;
+    border: 1px solid #28445e;
+    color: #dcecff;
+    box-shadow: 0 15px 45px rgba(0,0,0,.35);
+    transition: .25s ease;
 }
 
 #toast.show {
@@ -670,71 +774,98 @@ textarea {
     transform: translate(-50%, 0);
 }
 
+#toast-icon {
+    color: #35d9ff;
+}
 
 /* =========================================================
    DANGER MODE
 ========================================================= */
 
 body.danger-mode {
-    animation: dangerFlash .35s 3;
+    animation: dangerPulse .55s infinite alternate;
 }
 
-@keyframes dangerFlash {
-    50% {
-        box-shadow: inset 0 0 80px rgba(255, 40, 40, .25);
+@keyframes dangerPulse {
+    from {
+        box-shadow: inset 0 0 0 rgba(255,40,60,0);
+    }
+
+    to {
+        box-shadow: inset 0 0 70px rgba(255,40,60,.22);
     }
 }
-
 
 /* =========================================================
    FOOTER
 ========================================================= */
 
 footer {
-    padding: 30px 20px;
     text-align: center;
-    color: #71869a;
-    border-top: 1px solid rgba(53, 217, 255, .12);
+    padding: 30px 20px;
+    color: #60758e;
+    border-top: 1px solid #14273b;
+    margin-top: 50px;
 }
 
-
 /* =========================================================
-   RESPONSIVE
+   MOBILE
 ========================================================= */
 
 @media (max-width: 900px) {
 
-    .feature-grid {
-        grid-template-columns: 1fr 1fr;
+    .navbar {
+        flex-direction: column;
+        align-items: stretch;
     }
 
-    .scanner-layout {
+    .nav-links {
+        justify-content: flex-start;
+        overflow-x: auto;
+        flex-wrap: nowrap;
+    }
+
+    .features-grid,
+    .card-grid,
+    .scanner-grid {
         grid-template-columns: 1fr;
+    }
+
+    .dashboard-grid {
+        grid-template-columns: repeat(2, 1fr);
+    }
+
+    .game-stats {
+        grid-template-columns: repeat(3, 1fr);
+    }
+}
+
+@media (max-width: 600px) {
+
+    .page-inner,
+    .container,
+    .hero {
+        width: min(100% - 24px, 1180px);
+    }
+
+    .hero {
+        min-height: 550px;
+    }
+
+    .hero h1 {
+        font-size: 48px;
+    }
+
+    .hero-stats {
+        gap: 20px;
     }
 
     .dashboard-grid {
         grid-template-columns: 1fr 1fr;
     }
 
-    .nav-links {
-        display: none;
-    }
-}
-
-@media (max-width: 600px) {
-
-    .navbar {
-        padding: 14px 16px;
-    }
-
-    section {
-        padding: 45px 0;
-    }
-
-    .feature-grid,
-    .dashboard-grid,
     .game-stats {
-        grid-template-columns: 1fr;
+        grid-template-columns: repeat(2, 1fr);
     }
 
     #ai-ball {
@@ -744,14 +875,23 @@ footer {
         height: 64px !important;
     }
 
-    #ai-chat {
+    #ai-chat-popup {
         right: 18px;
-        bottom: 95px;
-        width: calc(100vw - 36px);
+        bottom: 94px;
     }
 
-    #ai-chat-popup {
-        right: 90px;
-        bottom: 28px;
+    #ai-chat,
+    .ai-chat {
+        right: 12px;
+        bottom: 12px;
+        width: calc(100vw - 24px);
+        height: 75vh;
+    }
+
+    #toast {
+        width: calc(100vw - 30px);
+        justify-content: center;
+        text-align: center;
     }
 }
+```
