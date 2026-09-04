@@ -10,7 +10,17 @@
           href="{{ url_for('static', filename='style.css') }}">
 </head>
 
-<body>
+<!-- SENTINEL AI BALL -->
+<button id="ai-ball" type="button" aria-label="Ask Cyber AI">
+    <span class="ai-ball-core">✦</span>
+</button>
+
+<!-- AI POPUP -->
+<div id="ai-chat-popup" class="ai-chat-popup">
+    <span>ASK CYBER AI</span>
+    <button id="ai-popup-close" type="button">×</button>
+</div>
+    <body>
 
     <!-- LIVE CYBER BACKGROUND -->
     <div class="cyber-bg">
