@@ -1,6 +1,414 @@
 /* =========================================================
-   SENTINEL AI BALL - VISIBILITY FIX
-   ========================================================= */
+   SENTINEL — CYBER INTELLIGENCE UI
+========================================================= */
+
+* {
+    box-sizing: border-box;
+}
+
+html {
+    scroll-behavior: smooth;
+}
+
+body {
+    margin: 0;
+    font-family: Arial, Helvetica, sans-serif;
+    background: #050b14;
+    color: #e8f7ff;
+    min-height: 100vh;
+}
+
+button,
+input,
+textarea {
+    font: inherit;
+}
+
+button {
+    cursor: pointer;
+}
+
+.hidden {
+    display: none !important;
+}
+
+
+/* =========================================================
+   NAVIGATION
+========================================================= */
+
+.navbar {
+    position: sticky;
+    top: 0;
+    z-index: 5000;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 16px 28px;
+    background: rgba(5, 11, 20, 0.96);
+    border-bottom: 1px solid rgba(53, 217, 255, 0.18);
+    backdrop-filter: blur(12px);
+}
+
+.nav-logo {
+    font-size: 22px;
+    font-weight: 800;
+    color: #35d9ff;
+    letter-spacing: 2px;
+}
+
+.nav-links {
+    display: flex;
+    gap: 8px;
+    flex-wrap: wrap;
+}
+
+.nav-links button {
+    background: transparent;
+    border: 1px solid transparent;
+    color: #9db2c8;
+    padding: 9px 12px;
+    border-radius: 8px;
+    font-weight: 700;
+    font-size: 12px;
+    letter-spacing: .5px;
+}
+
+.nav-links button:hover {
+    color: #35d9ff;
+    border-color: rgba(53, 217, 255, .3);
+}
+
+
+/* =========================================================
+   PAGES
+========================================================= */
+
+.page {
+    display: none;
+    min-height: calc(100vh - 70px);
+}
+
+.page.active {
+    display: block;
+}
+
+.container {
+    width: min(1180px, 92%);
+    margin: auto;
+}
+
+section {
+    padding: 70px 0;
+}
+
+
+/* =========================================================
+   HERO
+========================================================= */
+
+.hero {
+    min-height: 620px;
+    display: flex;
+    align-items: center;
+    text-align: center;
+    background:
+        radial-gradient(circle at 50% 35%, rgba(53, 217, 255, .12), transparent 35%),
+        #050b14;
+}
+
+.hero h1 {
+    margin: 0;
+    font-size: clamp(44px, 8vw, 90px);
+    letter-spacing: 6px;
+    color: #35d9ff;
+    text-shadow: 0 0 30px rgba(53, 217, 255, .35);
+}
+
+.hero h2 {
+    color: #fff;
+    margin: 15px 0;
+}
+
+.hero p {
+    max-width: 700px;
+    margin: 20px auto;
+    color: #91a6bb;
+    line-height: 1.7;
+}
+
+
+/* =========================================================
+   CARDS
+========================================================= */
+
+.card,
+.feature-card,
+.scanner-card,
+.dashboard-card,
+.game-card {
+    background: rgba(10, 22, 36, .92);
+    border: 1px solid rgba(53, 217, 255, .16);
+    border-radius: 16px;
+    padding: 24px;
+    box-shadow: 0 12px 40px rgba(0, 0, 0, .25);
+}
+
+.feature-grid {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 18px;
+}
+
+.feature-card h3 {
+    color: #35d9ff;
+}
+
+.feature-card p {
+    color: #91a6bb;
+    line-height: 1.6;
+}
+
+
+/* =========================================================
+   BUTTONS
+========================================================= */
+
+.primary-btn,
+.scan-btn,
+.game-btn {
+    border: 0;
+    border-radius: 9px;
+    padding: 13px 20px;
+    background: #35d9ff;
+    color: #031019;
+    font-weight: 800;
+    cursor: pointer;
+    transition: .2s;
+}
+
+.primary-btn:hover,
+.scan-btn:hover,
+.game-btn:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 0 22px rgba(53, 217, 255, .25);
+}
+
+button:disabled {
+    opacity: .55;
+    cursor: not-allowed;
+}
+
+
+/* =========================================================
+   FORMS
+========================================================= */
+
+input,
+textarea {
+    width: 100%;
+    background: #07121f;
+    color: #e8f7ff;
+    border: 1px solid rgba(53, 217, 255, .22);
+    border-radius: 10px;
+    padding: 14px;
+    outline: none;
+}
+
+input:focus,
+textarea:focus {
+    border-color: #35d9ff;
+    box-shadow: 0 0 15px rgba(53, 217, 255, .12);
+}
+
+textarea {
+    min-height: 180px;
+    resize: vertical;
+}
+
+
+/* =========================================================
+   SCANNER
+========================================================= */
+
+.scanner-layout {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 22px;
+}
+
+.scanner-card h2 {
+    color: #35d9ff;
+}
+
+.scanner-card label {
+    display: block;
+    margin-bottom: 9px;
+    color: #b8c8d8;
+    font-weight: 700;
+}
+
+.progress {
+    margin-top: 20px;
+    padding: 15px;
+    border-radius: 10px;
+    background: #07121f;
+    border: 1px solid rgba(53, 217, 255, .12);
+}
+
+.progress-track {
+    height: 8px;
+    margin-top: 10px;
+    background: #162333;
+    border-radius: 20px;
+    overflow: hidden;
+}
+
+.progress-fill {
+    width: 0;
+    height: 100%;
+    background: #35d9ff;
+    transition: width .25s ease;
+}
+
+.result {
+    margin-top: 20px;
+    padding: 20px;
+    border-radius: 12px;
+    background: #07121f;
+    border: 1px solid rgba(53, 217, 255, .18);
+}
+
+.result h3 {
+    color: #35d9ff;
+}
+
+.result ul {
+    color: #b7c8d8;
+    line-height: 1.7;
+}
+
+.risk-meter {
+    height: 10px;
+    background: #172432;
+    border-radius: 20px;
+    overflow: hidden;
+    margin: 15px 0;
+}
+
+.risk-meter-fill {
+    width: 0;
+    height: 100%;
+    background: #35d9ff;
+    transition: width .5s ease;
+}
+
+
+/* =========================================================
+   SOCIAL
+========================================================= */
+
+.screenshot-area {
+    text-align: center;
+    padding: 40px 0;
+}
+
+#selected-file {
+    margin: 12px 0;
+    color: #35d9ff;
+}
+
+
+/* =========================================================
+   GAME
+========================================================= */
+
+.game-wrap {
+    max-width: 850px;
+    margin: auto;
+}
+
+.game-header {
+    display: flex;
+    justify-content: space-between;
+    gap: 12px;
+    flex-wrap: wrap;
+}
+
+.game-stats {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 10px;
+    margin: 20px 0;
+}
+
+.game-stat {
+    background: #07121f;
+    border: 1px solid rgba(53, 217, 255, .14);
+    padding: 15px;
+    border-radius: 10px;
+    text-align: center;
+}
+
+.game-stat strong {
+    display: block;
+    color: #35d9ff;
+    font-size: 20px;
+}
+
+#question-options {
+    display: grid;
+    gap: 12px;
+    margin-top: 25px;
+}
+
+#question-options button {
+    text-align: left;
+    padding: 16px;
+    border-radius: 10px;
+    border: 1px solid rgba(53, 217, 255, .18);
+    background: #07121f;
+    color: #dcecf8;
+}
+
+#question-options button:hover {
+    border-color: #35d9ff;
+    background: #0a1b2b;
+}
+
+.answer-feedback {
+    min-height: 30px;
+    margin-top: 18px;
+    color: #35d9ff;
+    font-weight: 700;
+}
+
+
+/* =========================================================
+   DASHBOARD
+========================================================= */
+
+.dashboard-grid {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 15px;
+}
+
+.dashboard-card {
+    text-align: center;
+}
+
+.dashboard-card strong {
+    display: block;
+    color: #35d9ff;
+    font-size: 30px;
+    margin-top: 8px;
+}
+
+
+/* =========================================================
+   AI BALL
+========================================================= */
 
 #ai-ball {
     position: fixed !important;
@@ -14,29 +422,336 @@
     align-items: center !important;
     justify-content: center !important;
 
+    border: 2px solid #35d9ff !important;
+    border-radius: 50% !important;
+
+    background:
+        radial-gradient(circle, #123b50 0%, #071725 55%, #030a12 100%) !important;
+
+    color: #35d9ff !important;
+
     z-index: 99999 !important;
 
-    cursor: pointer !important;
-    visibility: visible !important;
     opacity: 1 !important;
+    visibility: visible !important;
 
-    border-radius: 50% !important;
-    overflow: visible !important;
+    box-shadow:
+        0 0 12px rgba(53, 217, 255, .7),
+        0 0 35px rgba(53, 217, 255, .25);
+
+    animation: aiPulse 2s infinite;
+}
+
+#ai-ball:hover {
+    transform: scale(1.08);
+}
+
+#ai-ball .ai-ball-core {
+    font-size: 30px;
+    line-height: 1;
+    color: #35d9ff;
+    text-shadow: 0 0 15px #35d9ff;
 }
 
 #ai-ball * {
     visibility: visible !important;
+    opacity: 1 !important;
 }
 
+@keyframes aiPulse {
+    0%, 100% {
+        box-shadow:
+            0 0 12px rgba(53, 217, 255, .7),
+            0 0 35px rgba(53, 217, 255, .25);
+    }
+
+    50% {
+        box-shadow:
+            0 0 22px rgba(53, 217, 255, .95),
+            0 0 55px rgba(53, 217, 255, .35);
+    }
+}
+
+
+/* =========================================================
+   AI POPUP
+========================================================= */
+
 #ai-chat-popup {
-    z-index: 100000 !important;
+    position: fixed;
+    right: 110px;
+    bottom: 42px;
+
+    z-index: 100000;
+
+    padding: 12px 16px;
+    border-radius: 10px;
+
+    background: #071725;
+    border: 1px solid #35d9ff;
+
+    color: #35d9ff;
+    font-size: 12px;
+    font-weight: 800;
+
+    box-shadow: 0 0 20px rgba(53, 217, 255, .25);
+}
+
+#ai-popup-close {
+    margin-left: 12px;
+    border: 0;
+    background: transparent;
+    color: #91a6bb;
+    font-size: 18px;
+}
+
+
+/* =========================================================
+   AI CHAT
+========================================================= */
+
+#ai-chat {
+    position: fixed;
+    right: 28px;
+    bottom: 115px;
+
+    width: min(390px, calc(100vw - 36px));
+    max-height: 600px;
+
+    z-index: 100001;
+
+    display: none;
+
+    overflow: hidden;
+
+    background: #06111d;
+    border: 1px solid rgba(53, 217, 255, .35);
+    border-radius: 16px;
+
+    box-shadow: 0 20px 60px rgba(0, 0, 0, .55);
+}
+
+#ai-chat.open {
+    display: flex;
+    flex-direction: column;
+}
+
+.chat-header {
+    padding: 16px;
+    background: #071a29;
+    border-bottom: 1px solid rgba(53, 217, 255, .18);
+
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+}
+
+.chat-header strong {
+    color: #35d9ff;
+}
+
+.chat-header button {
+    border: 0;
+    background: transparent;
+    color: #91a6bb;
+    font-size: 20px;
+}
+
+#chat-messages {
+    min-height: 300px;
+    max-height: 400px;
+    overflow-y: auto;
+    padding: 16px;
+}
+
+.chat-message {
+    display: flex;
+    gap: 10px;
+    margin-bottom: 14px;
+}
+
+.chat-message .avatar {
+    width: 32px;
+    height: 32px;
+    flex-shrink: 0;
+
+    display: flex;
+    align-items: center;
+    justify-content: center;
+
+    border-radius: 50%;
+    background: #0b2435;
+}
+
+.chat-message .message {
+    max-width: 80%;
+    padding: 10px 12px;
+    border-radius: 10px;
+    background: #0b1d2c;
+    color: #c8d7e4;
+}
+
+.chat-message .message strong {
+    display: block;
+    margin-bottom: 5px;
+    color: #35d9ff;
+    font-size: 11px;
+}
+
+.chat-message .message p {
+    margin: 0;
+    line-height: 1.5;
+}
+
+.chat-message.user {
+    flex-direction: row-reverse;
+}
+
+.chat-message.user .message {
+    background: #123449;
+}
+
+.chat-input-area {
+    display: flex;
+    gap: 8px;
+    padding: 12px;
+    border-top: 1px solid rgba(53, 217, 255, .15);
+}
+
+#chat-input {
+    min-height: 45px;
+    max-height: 100px;
+    resize: none;
+}
+
+#chat-send {
+    width: 48px;
+    border: 0;
+    border-radius: 9px;
+    background: #35d9ff;
+    color: #031019;
+    font-weight: 900;
+}
+
+
+/* =========================================================
+   TOAST
+========================================================= */
+
+#toast {
+    position: fixed;
+    left: 50%;
+    bottom: 25px;
+
+    transform: translate(-50%, 30px);
+
+    z-index: 200000;
+
+    opacity: 0;
+    pointer-events: none;
+
+    display: flex;
+    gap: 10px;
+    align-items: center;
+
+    padding: 13px 18px;
+
+    background: #071725;
+    border: 1px solid rgba(53, 217, 255, .3);
+    border-radius: 10px;
+
+    color: #dff6ff;
+
+    transition: .3s;
+}
+
+#toast.show {
+    opacity: 1;
+    transform: translate(-50%, 0);
+}
+
+
+/* =========================================================
+   DANGER MODE
+========================================================= */
+
+body.danger-mode {
+    animation: dangerFlash .35s 3;
+}
+
+@keyframes dangerFlash {
+    50% {
+        box-shadow: inset 0 0 80px rgba(255, 40, 40, .25);
+    }
+}
+
+
+/* =========================================================
+   FOOTER
+========================================================= */
+
+footer {
+    padding: 30px 20px;
+    text-align: center;
+    color: #71869a;
+    border-top: 1px solid rgba(53, 217, 255, .12);
+}
+
+
+/* =========================================================
+   RESPONSIVE
+========================================================= */
+
+@media (max-width: 900px) {
+
+    .feature-grid {
+        grid-template-columns: 1fr 1fr;
+    }
+
+    .scanner-layout {
+        grid-template-columns: 1fr;
+    }
+
+    .dashboard-grid {
+        grid-template-columns: 1fr 1fr;
+    }
+
+    .nav-links {
+        display: none;
+    }
 }
 
 @media (max-width: 600px) {
+
+    .navbar {
+        padding: 14px 16px;
+    }
+
+    section {
+        padding: 45px 0;
+    }
+
+    .feature-grid,
+    .dashboard-grid,
+    .game-stats {
+        grid-template-columns: 1fr;
+    }
+
     #ai-ball {
         right: 18px !important;
         bottom: 18px !important;
         width: 64px !important;
         height: 64px !important;
+    }
+
+    #ai-chat {
+        right: 18px;
+        bottom: 95px;
+        width: calc(100vw - 36px);
+    }
+
+    #ai-chat-popup {
+        right: 90px;
+        bottom: 28px;
     }
 }
