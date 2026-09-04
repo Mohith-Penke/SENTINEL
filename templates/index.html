@@ -20,10 +20,23 @@
         <div class="network-lines"></div>
     </div>
 
+    <!-- AI BALL -->
+    <button id="ai-ball" type="button" aria-label="Ask Cyber AI">
+        <span class="ai-ball-core">✦</span>
+    </button>
+
+    <!-- AI POPUP -->
+    <div id="ai-chat-popup" class="ai-chat-popup">
+        <span>ASK CYBER AI</span>
+        <button id="ai-popup-close" type="button">×</button>
+    </div>
+
     <!-- NAVBAR -->
     <header class="navbar">
+
         <div class="brand" data-target="home">
             <div class="brand-icon">🛡️</div>
+
             <div>
                 <strong>SENTINEL</strong>
                 <span>CYBER INTELLIGENCE</span>
@@ -43,12 +56,16 @@
             <span class="status-dot"></span>
             SYSTEM ONLINE
         </div>
+
     </header>
 
-    <!-- HOME -->
+
+    <!-- ================= HOME ================= -->
+
     <main id="home" class="page active">
 
         <section class="hero">
+
             <div class="hero-content">
 
                 <div class="eyebrow">
@@ -69,6 +86,7 @@
                 </p>
 
                 <div class="hero-buttons">
+
                     <button class="primary-btn" data-target="scanner">
                         🔍 START SECURITY SCAN
                     </button>
@@ -76,147 +94,754 @@
                     <button class="secondary-btn" data-target="awareness">
                         🧠 LEARN SECURITY
                     </button>
+
                 </div>
 
                 <div class="hero-stats">
-                    <div>
-                        <strong>100+</strong>
-                        <span>Cyber Questions</span>
-                    </div>
 
                     <div>
-                        <strong>5</strong>
-                        <span>Risk Levels</span>
-                    </div>
+                        <
+                                <!-- ================= SOCIAL ================= -->
 
-                    <div>
-                        <strong>24×7</strong>
-                        <span>AI Guidance</span>
-                    </div>
+    <main id="social" class="page">
+
+        <section class="page-header">
+            <span>SOCIAL INTELLIGENCE</span>
+            <h1>Social Profile Analyzer</h1>
+            <p>
+                Upload a profile screenshot and analyze visible
+                impersonation and scam indicators.
+            </p>
+        </section>
+
+
+        <section class="scanner-card">
+
+            <div class="scanner-title">
+
+                <div class="scanner-icon">📸</div>
+
+                <div>
+                    <h2>Profile Screenshot Analysis</h2>
+                    <p>
+                        Upload an Instagram, Facebook, X or other
+                        social profile screenshot.
+                    </p>
                 </div>
 
             </div>
 
-            <div class="hero-radar">
-                <div class="radar-ring ring-one"></div>
-                <div class="radar-ring ring-two"></div>
-                <div class="radar-ring ring-three"></div>
 
-                <div class="radar-core">
-                    <span>🛡️</span>
-                    <small>SENTINEL</small>
-                    <b>ACTIVE</b>
+            <form id="screenshot-form">
+
+                <div class="upload-box">
+
+                    <input
+                        id="screenshot-input"
+                        type="file"
+                        accept="image/*"
+                    >
+
+                    <div id="selected-file">
+                        No screenshot selected
+                    </div>
+
                 </div>
-            </div>
-        </section>
 
-        <!-- FEATURE CARDS -->
-        <section class="section">
-            <div class="section-heading">
-                <span>CAPABILITIES</span>
-                <h2>Cyber Defense Intelligence</h2>
-            </div>
 
-            <div class="feature-grid">
+                <button
+                    id="analyze-screenshot-btn"
+                    type="submit"
+                    class="primary-btn">
+                    📸 ANALYZE SCREENSHOT
+                </button>
 
-                <article class="feature-card" data-target="scanner">
-                    <div class="feature-icon">🌐</div>
-                    <h3>Website Scanner</h3>
-                    <p>
-                        Detect suspicious URLs, phishing indicators,
-                        impersonation patterns and dangerous links.
-                    </p>
-                </article>
+            </form>
 
-                <article class="feature-card" data-target="scanner">
-                    <div class="feature-icon">💬</div>
-                    <h3>Scam Message Detector</h3>
-                    <p>
-                        Analyze SMS, WhatsApp, email and DM messages
-                        for scam indicators.
-                    </p>
-                </article>
 
-                <article class="feature-card" data-target="social">
-                    <div class="feature-icon">📸</div>
-                    <h3>Social Profile Analyzer</h3>
-                    <p>
-                        Upload a profile screenshot and identify visible
-                        impersonation and scam indicators.
-                    </p>
-                </article>
+            <div id="screenshot-result"
+                 class="result-card hidden">
 
-                <article class="feature-card" data-target="game">
-                    <div class="feature-icon">🎮</div>
-                    <h3>Cyber Fraud Game</h3>
-                    <p>
-                        Test your cybersecurity knowledge with
-                        100+ interactive questions.
-                    </p>
-                </article>
+                <div class="result-header">
 
-            </div>
-        </section>
+                    <div>
+                        <span>SOCIAL SECURITY RESULT</span>
+                        <h2 id="screenshot-level">
+                            LOW RISK
+                        </h2>
+                    </div>
 
-        <!-- EMERGENCY -->
-        <section class="emergency-card">
-            <div class="emergency-icon">🚨</div>
+                    <div class="score-circle">
 
-            <div>
-                <span>CYBER CRIME EMERGENCY</span>
-                <h2>Think you've been scammed?</h2>
-                <p>
-                    If you have lost money through a cyber fraud,
-                    report it immediately.
-                </p>
+                        <strong id="screenshot-score">
+                            0
+                        </strong>
+
+                        <small>/100</small>
+
+                    </div>
+
+                </div>
+
+
+                <p id="screenshot-summary"></p>
+
+
+                <div class="reason-list">
+
+                    <h3>Visible Indicators</h3>
+
+                    <ul id="screenshot-indicators"></ul>
+
+                </div>
+
+
+                <div id="screenshot-actions"
+                     class="result-actions">
+                </div>
+
             </div>
 
-            <a class="emergency-btn" href="tel:1930">
-                📞 CALL 1930
-            </a>
         </section>
 
     </main>
 
 
-    <!-- SCANNER -->
-    <main id="scanner" class="page">
+    <!-- ================= CYBER GAME ================= -->
+
+    <main id="game" class="page">
 
         <section class="page-header">
-            <span>THREAT ANALYSIS</span>
-            <h1>Cyber Security Scanner</h1>
-            <p>Analyze suspicious websites and messages before you trust them.</p>
+
+            <span>CYBER SECURITY TRAINING</span>
+
+            <h1>Cyber Fraud Game</h1>
+
+            <p>
+                Test your ability to identify scams, phishing
+                and cyber threats.
+            </p>
+
         </section>
 
-        <!-- WEBSITE -->
+
+        <!-- GAME START -->
+
+        <section id="game-start"
+                 class="game-card">
+
+            <div class="game-icon">🎮</div>
+
+            <h2>Ready for the Challenge?</h2>
+
+            <p>
+                Answer cybersecurity questions and build your
+                threat detection skills.
+            </p>
+
+            <div class="game-info">
+
+                <div>
+                    <strong id="question-bank-count">
+                        100+
+                    </strong>
+                    <span>Questions</span>
+                </div>
+
+                <div>
+                    <strong>5</strong>
+                    <span>Risk Levels</span>
+                </div>
+
+                <div>
+                    <strong>⚡</strong>
+                    <span>Streak Bonus</span>
+                </div>
+
+            </div>
+
+
+            <button
+                id="start-game-btn"
+                class="primary-btn">
+                🎮 START GAME
+            </button>
+
+        </section>
+
+
+        <!-- GAME PLAY -->
+
+        <section id="game-play"
+                 class="game-card hidden">
+
+            <div class="game-top">
+
+                <div>
+                    <span>QUESTION</span>
+
+                    <strong id="question-number">
+                        1 / 15
+                    </strong>
+                </div>
+
+
+                <div class="game-stats">
+
+                    <span>
+                        SCORE
+                        <b id="game-score">0</b>
+                    </span>
+
+                    <span>
+                        STREAK
+                        <b id="game-streak">0</b>
+                    </span>
+
+                </div>
+
+            </div>
+
+
+            <div class="game-progress">
+
+                <div id="game-progress"></div>
+
+            </div>
+
+
+            <div class="question-box">
+
+                <span id="question-difficulty">
+                    EASY
+                </span>
+
+                <h2 id="question-text">
+                    Question loading...
+                </h2>
+
+            </div>
+
+
+            <div id="question-options"
+                 class="question-options">
+            </div>
+
+
+            <div id="answer-feedback"
+                 class="answer-feedback hidden">
+            </div>
+
+
+            <div class="live-game-stats">
+
+                <div>
+                    <span>CORRECT</span>
+                    <strong id="game-correct">0</strong>
+                </div>
+
+                <div>
+                    <span>WRONG</span>
+                    <strong id="game-wrong">0</strong>
+                </div>
+
+                <div>
+                    <span>BEST STREAK</span>
+                    <strong id="game-best-streak">0</strong>
+                </div>
+
+            </div>
+
+        </section>
+
+
+        <!-- GAME OVER -->
+
+        <section id="game-over"
+                 class="game-card hidden">
+
+            <div class="game-icon">🏆</div>
+
+            <span>MISSION COMPLETE</span>
+
+            <h2>Your Cyber Security Score</h2>
+
+
+            <div class="final-score">
+
+                <strong id="final-score">0</strong>
+
+                <span>POINTS</span>
+
+            </div>
+
+
+            <div class="final-results">
+
+                <div>
+                    <span>LEVEL</span>
+                    <strong id="final-level">
+                        BEGINNER
+                    </strong>
+                </div>
+
+                <div>
+                    <span>CORRECT</span>
+                    <strong id="final-correct">
+                        0
+                    </strong>
+                </div>
+
+                <div>
+                    <span>WRONG</span>
+                    <strong id="final-wrong">
+                        0
+                    </strong>
+                </div>
+
+                <div>
+                    <span>STREAK</span>
+                    <strong id="final-streak">
+                        0
+                    </strong>
+                </div>
+
+                <div>
+                    <span>ACCURACY</span>
+                    <strong id="final-accuracy">
+                        0%
+                    </strong>
+                </div>
+
+            </div>
+
+
+            <div id="mistake-review"
+                 class="mistake-review">
+            </div>
+
+
+            <button
+                id="restart-game-btn"
+                class="primary-btn">
+                🔄 PLAY AGAIN
+            </button>
+
+        </section>
+
+    </main>
+
+
+    <!-- ================= AWARENESS ================= -->
+
+    <main id="awareness" class="page">
+
+        <section class="page-header">
+
+            <span>CYBER AWARENESS CENTER</span>
+
+            <h1>Stay One Step Ahead</h1>
+
+            <p>
+                Learn simple habits that can protect you from
+                common cyber fraud.
+            </p>
+
+        </section>
+
+
+        <section class="awareness-grid">
+
+
+            <article class="awareness-card">
+
+                <div>🔐</div>
+
+                <h2>Protect Your OTP</h2>
+
+                <p>
+                    Never share OTPs with anyone, even if they
+                    claim to be from your bank or a government service.
+                </p>
+
+            </article>
+
+
+            <article class="awareness-card">
+
+                <div>💳</div>
+
+                <h2>UPI Safety</h2>
+
+                <p>
+                    You never need to enter your UPI PIN to receive
+                    money. A QR code can be used to request payment.
+                </p>
+
+            </article>
+
+
+            <article class="awareness-card">
+
+                <div>🌐</div>
+
+                <h2>Check Website URLs</h2>
+
+                <p>
+                    Look carefully at the domain name before entering
+                    passwords, card details or banking information.
+                </p>
+
+            </article>
+
+
+            <article class="awareness-card">
+
+                <div>📱</div>
+
+                <h2>Fake Apps & Links</h2>
+
+                <p>
+                    Avoid downloading applications from unknown links
+                    sent through SMS, WhatsApp or social media.
+                </p>
+
+            </article>
+
+
+            <article class="awareness-card">
+
+                <div>💼</div>
+
+                <h2>Job Scams</h2>
+
+                <p>
+                    Genuine employers do not normally demand money
+                    for registration, interviews or guaranteed jobs.
+                </p>
+
+            </article>
+
+
+            <article class="awareness-card">
+
+                <div>🚨</div>
+
+                <h2>Act Quickly</h2>
+
+                <p>
+                    If you lose money to cyber fraud in India,
+                    immediately contact the cyber crime helpline.
+                </p>
+
+            </article>
+
+
+        </section>
+
+
+        <section class="emergency-card">
+
+            <div class="emergency-icon">🚨</div>
+
+            <div>
+
+                <span>NATIONAL CYBER CRIME HELPLINE</span>
+
+                <h2>Cyber Fraud Emergency</h2>
+
+                <p>
+                    If you have lost money through cyber fraud,
+                    report it immediately.
+                </p>
+
+            </div>
+
+            <a
+                class="emergency-btn"
+                href="tel:1930">
+                📞 CALL 1930
+            </a>
+
+        </section>
+
+    </main>
+
+
+    <!-- ================= DASHBOARD ================= -->
+
+    <main id="dashboard" class="page">
+
+        <section class="page-header">
+
+            <span>SENTINEL INTELLIGENCE</span>
+
+            <h1>Security Dashboard</h1>
+
+            <p>
+                Track your security scans, threats and
+                cybersecurity training progress.
+            </p>
+
+        </section>
+
+
+        <section class="dashboard-grid">
+
+
+            <div class="dashboard-card">
+
+                <span>WEBSITE SCANS</span>
+
+                <strong id="dash-website-scans">
+                    0
+                </strong>
+
+            </div>
+
+
+            <div class="dashboard-card">
+
+                <span>HIGH RISK</span>
+
+                <strong id="dash-high-risk">
+                    0
+                </strong>
+
+            </div>
+
+
+            <div class="dashboard-card">
+
+                <span>CRITICAL</span>
+
+                <strong id="dash-critical">
+                    0
+                </strong>
+
+            </div>
+
+
+            <div class="dashboard-card">
+
+                <span>MESSAGES</span>
+
+                <strong id="dash-messages">
+                    0
+                </strong>
+
+            </div>
+
+
+            <div class="dashboard-card">
+
+                <span>SOCIAL ANALYSIS</span>
+
+                <strong id="dash-social">
+                    0
+                </strong>
+
+            </div>
+
+
+            <div class="dashboard-card">
+
+                <span>BEST GAME SCORE</span>
+
+                <strong id="dash-best-score">
+                    0
+                </strong>
+
+            </div>
+
+
+            <div class="dashboard-card">
+
+                <span>TOTAL SECURITY CHECKS</span>
+
+                <strong id="dash-total">
+                    0
+                </strong>
+
+            </div>
+
+
+            <div class="dashboard-card">
+
+                <span>SECURITY LEVEL</span>
+
+                <strong id="dash-level">
+                    BEGINNER
+                </strong>
+
+            </div>
+
+        </section>
+
+
         <section class="scanner-card">
 
             <div class="scanner-title">
-                <div class="scanner-icon">🌐</div>
+
+                <div class="scanner-icon">🛡️</div>
+
                 <div>
-                    <h2>Website Risk Analyzer</h2>
-                    <p>Enter a suspicious website URL.</p>
+                    <h2>SENTINEL STATUS</h2>
+
+                    <p>
+                        Your local security activity is tracked
+                        on this device.
+                    </p>
                 </div>
+
             </div>
 
-            <div class="input-row">
-                <input
-                    id="website-url"
-                    type="url"
-                    placeholder="https://example.com"
-                    autocomplete="off"
-                >
 
-                <button id="scan-website-btn" class="primary-btn">
-                    🔍 ANALYZE
+            <div class="dashboard-status">
+
+                <span class="status-dot"></span>
+
+                SENTINEL SYSTEM ONLINE
+
+            </div>
+
+        </section>
+
+    </main>
+
+
+    <!-- ================= AI CHAT ================= -->
+
+    <div id="ai-chat"
+         class="ai-chat hidden">
+
+        <div class="ai-chat-header">
+
+            <div>
+
+                <strong>🛡️ SENTINEL AI</strong>
+
+                <span>CYBER SECURITY COPILOT</span>
+
+            </div>
+
+
+            <div class="ai-chat-controls">
+
+                <button
+                    id="chat-minimize"
+                    type="button">
+                    −
                 </button>
+
+                <button
+                    id="chat-close"
+                    type="button">
+                    ×
+                </button>
+
             </div>
 
-            <div id="website-progress" class="progress-box hidden">
-                <div class="progress-top">
-                    <span id="website-stages">Initializing scan...</span>
-                    <span id="website-progress-percent">0%</span>
+        </div>
+
+
+        <div id="chat-messages"
+             class="chat-messages">
+
+            <div class="ai-message">
+
+                <div class="message-avatar">
+                    ✦
                 </div>
 
-                <div class="progress-bar">
-                    <div id="website
+                <div class="message-content">
+
+                    <strong>SENTINEL AI</strong>
+
+                    <p>
+                        Hello! I'm your Cyber Security Copilot.
+                        Ask me about phishing, scams, OTPs, UPI,
+                        suspicious websites or any cyber security concern.
+                    </p>
+
+                </div>
+
+            </div>
+
+        </div>
+
+
+        <div id="chat-typing"
+             class="chat-typing hidden">
+            SENTINEL AI is thinking...
+        </div>
+
+
+        <div class="chat-input-area">
+
+            <textarea
+                id="chat-input"
+                placeholder="Ask SENTINEL about cyber security..."
+                rows="1"></textarea>
+
+            <button
+                id="chat-send"
+                type="button">
+                ➤
+            </button>
+
+        </div>
+
+    </div>
+
+
+    <!-- ================= TOAST ================= -->
+
+    <div id="toast"
+         class="toast hidden">
+
+        <span id="toast-icon">✓</span>
+
+        <span id="toast-message">
+            Operation completed
+        </span>
+
+    </div>
+
+
+    <!-- FOOTER -->
+
+    <footer class="footer">
+
+        <div>
+
+            <strong>SENTINEL</strong>
+
+            <span>
+                CYBER SECURITY INTELLIGENCE
+            </span>
+
+        </div>
+
+
+        <p>
+            Stay alert. Stay secure. Think before you trust.
+        </p>
+
+
+        <a href="tel:1930">
+            🚨 CYBER FRAUD HELPLINE: 1930
+        </a>
+
+    </footer>
+
+
+    <!-- JAVASCRIPT -->
+
+    <script
+        src="{{ url_for('static', filename='app.js') }}">
+    </script>
+
+</body>
+</html>
+                            
