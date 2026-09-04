@@ -1,67 +1,60 @@
-// SENTINEL - Frontend JavaScript
+/* =========================================================
+   SENTINEL — CYBER INTELLIGENCE FRONTEND
+========================================================= */
 
 "use strict";
 
-/* =========================
+/* =========================================================
    HELPERS
-========================= */
+========================================================= */
 
-const $ = (selector) => document.querySelector(selector);
-const $$ = (selector) => [...document.querySelectorAll(selector)];
+const $ = (id) => document.getElementById(id);
 
-const show = (el) => {
-    if (el) el.classList.remove("hidden");
+const $$ = (selector) =>
+    Array.from(document.querySelectorAll(selector));
+
+const escapeHTML = (value) => {
+    const div = document.createElement("div");
+    div.textContent = String(value ?? "");
+    return div.innerHTML;
 };
 
-const hide = (el) => {
-    if (el) el.classList.add("hidden");
-};
+const sleep = (ms) =>
+    new Promise(resolve => setTimeout(resolve, ms));
 
-const setText = (selector, value) => {
-    const el = typeof selector === "string" ? $(selector) : selector;
-    if (el) el.textContent = value ?? "";
-};
+function show(element) {
+    if (element) element.classList.remove("hidden");
+}
 
-const sleep = (ms) => new Promise(resolve => setTimeout(resolve, ms));
+function hide(element) {
+    if (element) element.classList.add("hidden");
+}
 
-const escapeHTML = (text) => {
-    if (text === null || text === undefined) return "";
-    return String(text)
-        .replace(/&/g, "&amp;")
-        .replace(/</g, "&lt;")
-        .replace(/>/g, "&gt;")
-        .replace(/"/g, "&quot;")
-        .replace(/'/g, "&#039;");
-};
+function setText(id, value) {
+    const element = $(id);
+    if (element) element.textContent = value ?? "";
+}
 
-function showToast(message, type = "info") {
-    const toast = $("#toast");
-    const toastMessage = $("#toast-message");
-    const toastIcon = $("#toast-icon");
+function showToast(message, icon = "✓") {
+
+    setText("toast-message", message);
+    setText("toast-icon", icon);
+
+    const toast = $("toast");
 
     if (!toast) return;
 
-    const icons = {
-        success: "✓",
-        error: "!",
-        warning: "⚠",
-        info: "i"
-    };
+    toast.classList.add("show");
 
-    if (toastIcon) toastIcon.textContent = icons[type] || "i";
-    if (toastMessage) toastMessage.textContent = message;
+    clearTimeout(window.sentinelToastTimer);
 
-    toast.classList.remove("hidden", "success", "error", "warning", "info");
-    toast.classList.add(type);
-
-    clearTimeout(window.__toastTimer);
-
-    window.__toastTimer = setTimeout(() => {
-        toast.classList.add("hidden");
-    }, 3500);
+    window.sentinelToastTimer = setTimeout(() => {
+        toast.classList.remove("show");
+    }, 2800);
 }
 
 async function postJSON(url, data) {
+
     const response = await fetch(url, {
         method: "POST",
         headers: {
@@ -79,23 +72,28 @@ async function postJSON(url, data) {
     }
 
     if (!response.ok) {
-        throw new Error(result.error || "Something went wrong.");
+        throw new Error(
+            result.error ||
+            result.message ||
+            "Request failed."
+        );
     }
 
     return result;
 }
 
-function setButtonLoading(button, loading, loadingText = "Scanning...") {
+function setButtonLoading(button, loading, loadingText = "PROCESSING...") {
+
     if (!button) return;
 
     if (loading) {
-        if (!button.dataset.originalText) {
-            button.dataset.originalText = button.innerHTML;
-        }
 
+        button.dataset.originalText = button.innerHTML;
         button.disabled = true;
-        button.innerHTML = `<span class="btn-spinner"></span>${loadingText}`;
+        button.innerHTML = `⏳ ${loadingText}`;
+
     } else {
+
         button.disabled = false;
 
         if (button.dataset.originalText) {
@@ -104,1718 +102,1147 @@ function setButtonLoading(button, loading, loadingText = "Scanning...") {
     }
 }
 
-
-/* =========================
+/* =========================================================
    NAVIGATION
-========================= */
+========================================================= */
 
-function openSection(target) {
-    if (!target) return;
+function navigateTo(target) {
 
-    const sections = $$(".page-section");
+    const pages = $$(".page");
 
-    sections.forEach(section => {
-        section.classList.remove("active");
+    pages.forEach(page => {
+        page.classList.remove("active");
     });
 
-    const targetSection = document.getElementById(target);
+    const page = $(target);
 
-    if (targetSection) {
-        targetSection.classList.add("active");
+    if (page) {
+        page.classList.add("active");
         window.scrollTo({
             top: 0,
             behavior: "smooth"
         });
     }
-
-    $$("[data-target]").forEach(button => {
-        button.classList.toggle(
-            "active",
-            button.dataset.target === target
-        );
-    });
 }
 
 $$("[data-target]").forEach(button => {
+
     button.addEventListener("click", () => {
-        openSection(button.dataset.target);
+
+        const target = button.dataset.target;
+
+        if (target) {
+            navigateTo(target);
+        }
     });
 });
 
 
-/* =========================
-   DASHBOARD
-========================= */
+/* =========================================================
+   RISK CLASSIFICATION
+========================================================= */
 
-const dashboard = {
+function getRiskInfo(score) {
+
+    score = Number(score) || 0;
+
+    if (score <= 29) {
+        return {
+            level: "LOW RISK",
+            className: "low",
+            emoji: "🟢"
+        };
+    }
+
+    if (score <= 49) {
+        return {
+            level: "MEDIUM RISK",
+            className: "medium",
+            emoji: "🟡"
+        };
+    }
+
+    if (score <= 69) {
+        return {
+            level: "MEDIUM → HIGH RISK",
+            className: "medium-high",
+            emoji: "🟠"
+        };
+    }
+
+    if (score <= 89) {
+        return {
+            level: "HIGH RISK",
+            className: "high",
+            emoji: "🔴"
+        };
+    }
+
+    return {
+        level: "CRITICAL RISK",
+        className: "critical",
+        emoji: "🚨"
+    };
+}
+
+
+/* =========================================================
+   DANGER SOUND
+========================================================= */
+
+function playDangerSound() {
+
+    try {
+
+        const AudioContext =
+            window.AudioContext ||
+            window.webkitAudioContext;
+
+        if (!AudioContext) return;
+
+        const audioContext = new AudioContext();
+
+        const now = audioContext.currentTime;
+
+        const oscillator1 =
+            audioContext.createOscillator();
+
+        const oscillator2 =
+            audioContext.createOscillator();
+
+        const gain =
+            audioContext.createGain();
+
+        oscillator1.type = "sawtooth";
+        oscillator2.type = "square";
+
+        oscillator1.frequency.setValueAtTime(
+            880,
+            now
+        );
+
+        oscillator1.frequency.exponentialRampToValueAtTime(
+            440,
+            now + 0.25
+        );
+
+        oscillator2.frequency.setValueAtTime(
+            660,
+            now
+        );
+
+        oscillator2.frequency.exponentialRampToValueAtTime(
+            330,
+            now + 0.25
+        );
+
+        gain.gain.setValueAtTime(
+            0.0001,
+            now
+        );
+
+        gain.gain.exponentialRampToValueAtTime(
+            0.18,
+            now + 0.02
+        );
+
+        gain.gain.exponentialRampToValueAtTime(
+            0.0001,
+            now + 0.55
+        );
+
+        oscillator1.connect(gain);
+        oscillator2.connect(gain);
+
+        gain.connect(audioContext.destination);
+
+        oscillator1.start(now);
+        oscillator2.start(now);
+
+        oscillator1.stop(now + 0.55);
+        oscillator2.stop(now + 0.55);
+
+        setTimeout(() => {
+            audioContext.close().catch(() => {});
+        }, 800);
+
+    } catch (error) {
+
+        console.warn(
+            "Danger sound could not play:",
+            error
+        );
+    }
+}
+
+
+/* =========================================================
+   DANGER VISUAL
+========================================================= */
+
+function triggerDangerMode() {
+
+    document.body.classList.add("danger-mode");
+
+    showToast(
+        "🚨 HIGH-RISK THREAT DETECTED",
+        "🚨"
+    );
+
+    setTimeout(() => {
+        document.body.classList.remove("danger-mode");
+    }, 3500);
+}
+
+
+/* =========================================================
+   DASHBOARD STORAGE
+========================================================= */
+
+const defaultStats = {
     websiteScans: 0,
     highRisk: 0,
     critical: 0,
     messages: 0,
     social: 0,
-    bestScore: 0
+    bestScore: 0,
+    total: 0
 };
 
-function loadDashboard() {
-    const saved = localStorage.getItem("sentinelDashboard");
+function getStats() {
 
-    if (saved) {
-        try {
-            Object.assign(dashboard, JSON.parse(saved));
-        } catch {
-            console.warn("Dashboard data reset.");
-        }
+    try {
+
+        return {
+            ...defaultStats,
+            ...JSON.parse(
+                localStorage.getItem("sentinelStats") || "{}"
+            )
+        };
+
+    } catch {
+
+        return {
+            ...defaultStats
+        };
     }
-
-    updateDashboard();
 }
 
-function saveDashboard() {
-    localStorage.setItem(
-        "sentinelDashboard",
-        JSON.stringify(dashboard)
-    );
+function saveStats(stats) {
 
-    updateDashboard();
+    localStorage.setItem(
+        "sentinelStats",
+        JSON.stringify(stats)
+    );
 }
 
 function updateDashboard() {
-    setText("#dash-website-scans", dashboard.websiteScans);
-    setText("#dash-high-risk", dashboard.highRisk);
-    setText("#dash-critical", dashboard.critical);
-    setText("#dash-messages", dashboard.messages);
-    setText("#dash-social", dashboard.social);
-    setText("#dash-best-score", dashboard.bestScore);
 
-    const total =
-        dashboard.websiteScans +
-        dashboard.messages +
-        dashboard.social;
+    const stats = getStats();
 
-    setText("#dash-total", total);
+    setText(
+        "dash-website-scans",
+        stats.websiteScans
+    );
 
-    let level = "Beginner";
+    setText(
+        "dash-high-risk",
+        stats.highRisk
+    );
 
-    if (dashboard.bestScore >= 400) {
-        level = "SENTINEL Elite";
-    } else if (dashboard.bestScore >= 300) {
-        level = "Cyber Defender";
-    } else if (dashboard.bestScore >= 200) {
-        level = "Cyber Smart";
-    } else if (dashboard.bestScore >= 100) {
-        level = "Aware";
+    setText(
+        "dash-critical",
+        stats.critical
+    );
+
+    setText(
+        "dash-messages",
+        stats.messages
+    );
+
+    setText(
+        "dash-social",
+        stats.social
+    );
+
+    setText(
+        "dash-best-score",
+        stats.bestScore
+    );
+
+    setText(
+        "dash-total",
+        stats.total
+    );
+
+    let level = "BEGINNER";
+
+    if (stats.total >= 25) {
+        level = "DEFENDER";
     }
 
-    setText("#dash-level", level);
-}
-
-
-/* =========================
-   WEBSITE SCANNER
-========================= */
-
-const websiteStages = [
-    "Connecting to target",
-    "Checking HTTPS security",
-    "Inspecting domain structure",
-    "Detecting suspicious patterns",
-    "Analyzing phishing indicators",
-    "Running fraud risk engine",
-    "Generating security report"
-];
-
-async function runWebsiteStages() {
-    const container = $("#website-stages");
-    const progress = $("#website-progress-fill");
-    const percent = $("#website-progress-percent");
-
-    if (!container) return;
-
-    container.innerHTML = websiteStages
-        .map((stage, index) => `
-            <div class="scan-stage" data-stage="${index}">
-                <span class="stage-icon">○</span>
-                <span>${escapeHTML(stage)}</span>
-            </div>
-        `)
-        .join("");
-
-    for (let i = 0; i < websiteStages.length; i++) {
-        const stage = container.querySelector(
-            `[data-stage="${i}"]`
-        );
-
-        if (stage) {
-            stage.classList.add("active");
-
-            const icon = stage.querySelector(".stage-icon");
-
-            if (icon) icon.textContent = "◉";
-        }
-
-        const value = Math.round(
-            ((i + 1) / websiteStages.length) * 100
-        );
-
-        if (progress) {
-            progress.style.width = `${value}%`;
-        }
-
-        setText("#website-progress-percent", `${value}%`);
-
-        await sleep(350);
-
-        if (stage) {
-            stage.classList.remove("active");
-            stage.classList.add("complete");
-
-            const icon = stage.querySelector(".stage-icon");
-
-            if (icon) icon.textContent = "✓";
-        }
-    }
-}
-
-function riskClass(level) {
-    return String(level || "Unknown")
-        .toLowerCase()
-        .replace(/\s+/g, "-");
-}
-
-function renderReasons(selector, reasons) {
-    const container = $(selector);
-
-    if (!container) return;
-
-    const items = Array.isArray(reasons) ? reasons : [];
-
-    if (!items.length) {
-        container.innerHTML =
-            `<li>No major suspicious indicators detected.</li>`;
-        return;
+    if (stats.total >= 50) {
+        level = "CYBER SCOUT";
     }
 
-    container.innerHTML = items
-        .map(item => `<li>${escapeHTML(item)}</li>`)
-        .join("");
-}
-
-function renderActions(selector, actions) {
-    const container = $(selector);
-
-    if (!container) return;
-
-    const items = Array.isArray(actions) ? actions : [];
-
-    if (!items.length) {
-        container.innerHTML =
-            `<li>Continue using normal security precautions.</li>`;
-        return;
+    if (stats.total >= 100) {
+        level = "CYBER GUARDIAN";
     }
 
-    container.innerHTML = items
-        .map(item => `<li>${escapeHTML(item)}</li>`)
-        .join("");
+    setText(
+        "dash-level",
+        level
+    );
 }
+
+function recordScan(type, score) {
+
+    const stats = getStats();
+
+    stats.total++;
+
+    if (type === "website") {
+        stats.websiteScans++;
+    }
+
+    if (type === "message") {
+        stats.messages++;
+    }
+
+    if (type === "social") {
+        stats.social++;
+    }
+
+    if (score >= 70) {
+        stats.highRisk++;
+    }
+
+    if (score >= 90) {
+        stats.critical++;
+    }
+
+    saveStats(stats);
+
+    updateDashboard();
+}
+
+
+/* =========================================================
+   RISK RESULT RENDERER
+========================================================= */
 
 function renderRiskResult(prefix, data) {
-    const score = Number(data.score || 0);
-    const level = data.level || "Unknown";
-    const summary = data.summary || "Analysis completed.";
 
-    setText(`#${prefix}-score`, score);
-    setText(`#${prefix}-level`, level);
-    setText(`#${prefix}-summary`, summary);
+    const score = Math.max(
+        0,
+        Math.min(
+            100,
+            Number(data.score) || 0
+        )
+    );
 
-    const meter = $(`#${prefix}-meter-fill`);
+    const info = getRiskInfo(score);
+
+    setText(
+        `${prefix}-score`,
+        score
+    );
+
+    setText(
+        `${prefix}-level`,
+        info.level
+    );
+
+    setText(
+        `${prefix}-summary`,
+        data.summary ||
+        `${info.emoji} SENTINEL classified this as ${info.level}.`
+    );
+
+    const meter =
+        $(`${prefix}-meter-fill`);
 
     if (meter) {
-        meter.style.width = `${Math.min(100, Math.max(0, score))}%`;
+        meter.style.width = `${score}%`;
     }
 
-    const levelElement = $(`#${prefix}-level`);
+    const reasons =
+        $(`${prefix}-reasons`);
 
-    if (levelElement) {
-        levelElement.className = `risk-level ${riskClass(level)}`;
+    if (reasons) {
+
+        reasons.innerHTML = "";
+
+        const list =
+            Array.isArray(data.reasons)
+                ? data.reasons
+                : [];
+
+        if (!list.length) {
+
+            const li =
+                document.createElement("li");
+
+            li.textContent =
+                "No major suspicious indicators were detected.";
+
+            reasons.appendChild(li);
+
+        } else {
+
+            list.forEach(reason => {
+
+                const li =
+                    document.createElement("li");
+
+                li.textContent = reason;
+
+                reasons.appendChild(li);
+            });
+        }
     }
 
-    renderReasons(`#${prefix}-reasons`, data.reasons);
-    renderActions(`#${prefix}-actions`, data.actions);
+    const actions =
+        $(`${prefix}-actions`);
+
+    if (actions) {
+
+        actions.innerHTML = "";
+
+        const list =
+            Array.isArray(data.actions)
+                ? data.actions
+                : [];
+
+        if (!list.length) {
+
+            const li =
+                document.createElement("li");
+
+            li.textContent =
+                score >= 70
+                    ? "Do not enter passwords, OTPs or payment information."
+                    : "Verify the information before taking action.";
+
+            actions.appendChild(li);
+
+        } else {
+
+            list.forEach(action => {
+
+                const li =
+                    document.createElement("li");
+
+                li.textContent = action;
+
+                actions.appendChild(li);
+            });
+        }
+    }
+
+    const result =
+        $(`${prefix}-result`);
+
+    show(result);
+
+    if (
+        prefix === "website" &&
+        score >= 70 &&
+        (
+            info.level.includes("HIGH") ||
+            info.level.includes("CRITICAL")
+        )
+    ) {
+
+        playDangerSound();
+        triggerDangerMode();
+    }
 }
+
+
+/* =========================================================
+   WEBSITE SCANNER
+========================================================= */
 
 async function scanWebsite() {
-    const input = $("#website-url");
-    const button = $("#scan-website-btn");
-    const result = $("#website-result");
 
-    if (!input) return;
+    const input = $("website-url");
+    const button = $("scan-website-btn");
 
-    const url = input.value.trim();
+    if (!input || !button) return;
+
+    const url =
+        input.value.trim();
 
     if (!url) {
-        showToast("Enter a website URL first.", "warning");
+
+        showToast(
+            "Enter a website URL first.",
+            "⚠️"
+        );
+
         input.focus();
+
         return;
     }
 
-    setButtonLoading(button, true, "Scanning...");
+    const progress =
+        $("website-progress");
+
+    const result =
+        $("website-result");
+
+    show(progress);
     hide(result);
-
-    try {
-        show($("#website-stages"));
-        show($("#website-progress"));
-
-        await runWebsiteStages();
-
-        const data = await postJSON("/scan", {
-            url: url
-        });
-
-        renderRiskResult("website", data);
-
-        dashboard.websiteScans++;
-
-        if (Number(data.score || 0) >= 70) {
-            dashboard.highRisk++;
-        }
-
-        if (Number(data.score || 0) >= 90) {
-            dashboard.critical++;
-        }
-
-        saveDashboard();
-
-        show(result);
-
-        showToast(
-            `Scan complete — ${data.level || "Unknown"} risk`,
-            Number(data.score || 0) >= 70 ? "warning" : "success"
-        );
-    } catch (error) {
-        showToast(error.message, "error");
-    } finally {
-        setButtonLoading(button, false);
-    }
-}
-
-$("#scan-website-btn")?.addEventListener(
-    "click",
-    scanWebsite
-);
-
-$("#website-url")?.addEventListener("keydown", event => {
-    if (event.key === "Enter") {
-        scanWebsite();
-    }
-});
-
-
-/* =========================
-   DEMO URLS
-========================= */
-
-$$("[data-demo-url]").forEach(button => {
-    button.addEventListener("click", () => {
-        const url = button.dataset.demoUrl;
-
-        const input = $("#website-url");
-
-        if (input && url) {
-            input.value = url;
-            input.focus();
-
-            showToast(
-                "Demo URL loaded. Click Scan Website.",
-                "info"
-            );
-        }
-    });
-});
-
-
-/* =========================
-   MESSAGE SCANNER
-========================= */
-
-const messageStages = [
-    "Reading message language & intent",
-    "Detecting scam patterns",
-    "Checking urgency & fear tactics",
-    "Checking OTP / KYC requests",
-    "Checking UPI & payment requests",
-    "Inspecting suspicious links",
-    "Checking impersonation signals",
-    "Calculating fraud risk"
-];
-
-async function runMessageStages() {
-    const container = $("#message-stages");
-    const progress = $("#message-progress-fill");
-
-    if (!container) return;
-
-    container.innerHTML = messageStages
-        .map((stage, index) => `
-            <div class="scan-stage" data-stage="${index}">
-                <span class="stage-icon">○</span>
-                <span>${escapeHTML(stage)}</span>
-            </div>
-        `)
-        .join("");
-
-    for (let i = 0; i < messageStages.length; i++) {
-        const stage = container.querySelector(
-            `[data-stage="${i}"]`
-        );
-
-        if (stage) {
-            stage.classList.add("active");
-
-            const icon = stage.querySelector(".stage-icon");
-
-            if (icon) icon.textContent = "◉";
-        }
-
-        const value = Math.round(
-            ((i + 1) / messageStages.length) * 100
-        );
-
-        if (progress) {
-            progress.style.width = `${value}%`;
-        }
-
-        setText("#message-progress-percent", `${value}%`);
-
-        await sleep(300);
-
-        if (stage) {
-            stage.classList.remove("active");
-            stage.classList.add("complete");
-
-            const icon = stage.querySelector(".stage-icon");
-
-            if (icon) icon.textContent = "✓";
-        }
-    }
-}
-
-async function scanMessage() {
-    const input = $("#message-text");
-    const button = $("#scan-message-btn");
-    const result = $("#message-result");
-
-    if (!input) return;
-
-    const message = input.value.trim();
-
-    if (!message) {
-        showToast("Paste a message first.", "warning");
-        input.focus();
-        return;
-    }
-
-    if (message.length < 5) {
-        showToast("Please enter a little more text.", "warning");
-        return;
-    }
-
-    setButtonLoading(button, true, "Analyzing...");
-    hide(result);
-
-    try {
-        show($("#message-stages"));
-        show($("#message-progress"));
-
-        await runMessageStages();
-
-        const data = await postJSON("/scan-message", {
-            message: message
-        });
-
-        renderRiskResult("message", data);
-
-        dashboard.messages++;
-        saveDashboard();
-
-        show(result);
-
-        showToast(
-            `Message analysis complete — ${data.level || "Unknown"} risk`,
-            Number(data.score || 0) >= 70
-                ? "warning"
-                : "success"
-        );
-    } catch (error) {
-        showToast(error.message, "error");
-    } finally {
-        setButtonLoading(button, false);
-    }
-}
-
-$("#scan-message-btn")?.addEventListener(
-    "click",
-    scanMessage
-);
-
-$("#clear-message-btn")?.addEventListener(
-    "click",
-    () => {
-        const input = $("#message-text");
-
-        if (input) input.value = "";
-
-        hide($("#message-result"));
-        hide($("#message-stages"));
-        hide($("#message-progress"));
-
-        showToast("Message cleared.", "info");
-    }
-);
-
-$("#message-demo-btn")?.addEventListener(
-    "click",
-    () => {
-        const input = $("#message-text");
-
-        if (!input) return;
-
-        input.value =
-            "URGENT! Your bank KYC has expired. Verify immediately or your account will be blocked. Click http://secure-bank-update.example and enter OTP to continue.";
-
-        input.focus();
-
-        showToast(
-            "Demo scam message loaded.",
-            "warning"
-        );
-    }
-);
-
-
-/* =========================
-   SOCIAL PROFILE ANALYZER
-========================= */
-
-let selectedPlatform = "Instagram";
-
-$$(".platform-tab").forEach(tab => {
-    tab.addEventListener("click", () => {
-        $$(".platform-tab").forEach(item => {
-            item.classList.remove("active");
-        });
-
-        tab.classList.add("active");
-
-        selectedPlatform =
-            tab.dataset.platform ||
-            tab.textContent.trim() ||
-            "Instagram";
-    });
-});
-
-async function analyzeSocialProfile() {
-    const button = $("#analyze-social-btn");
-    const result = $("#social-result");
-
-    const username = $("#social-username")?.value.trim() || "";
-    const name = $("#social-name")?.value.trim() || "";
-    const bio = $("#social-bio")?.value.trim() || "";
-    const followers = $("#social-followers")?.value.trim() || "";
-    const following = $("#social-following")?.value.trim() || "";
-    const profileUrl = $("#social-url")?.value.trim() || "";
-
-    if (!username && !name && !bio && !profileUrl) {
-        showToast(
-            "Enter at least one profile detail.",
-            "warning"
-        );
-        return;
-    }
 
     setButtonLoading(
         button,
         true,
-        "Analyzing..."
+        "SCANNING..."
     );
 
-    hide(result);
+    const fill =
+        $("website-progress-fill");
+
+    const stages = [
+        [15, "Connecting to target..."],
+        [30, "Inspecting URL structure..."],
+        [48, "Checking suspicious patterns..."],
+        [66, "Analyzing domain indicators..."],
+        [82, "Calculating threat score..."],
+        [95, "Generating security recommendation..."]
+    ];
 
     try {
-        const data = await postJSON("/scan-profile", {
-            platform: selectedPlatform,
-            username,
-            name,
-            bio,
-            followers,
-            following,
-            url: profileUrl
-        });
 
-        renderRiskResult("social", data);
+        for (const [percent, message] of stages) {
 
-        dashboard.social++;
-        saveDashboard();
+            setText(
+                "website-stages",
+                message
+            );
 
-        show(result);
+            setText(
+                "website-progress-percent",
+                `${percent}%`
+            );
 
-        showToast(
-            "Profile indicator analysis completed.",
-            "success"
-        );
-    } catch (error) {
-        showToast(error.message, "error");
-    } finally {
-        setButtonLoading(button, false);
-    }
-}
+            if (fill) {
+                fill.style.width =
+                    `${percent}%`;
+            }
 
-$("#analyze-social-btn")?.addEventListener(
-    "click",
-    analyzeSocialProfile
-);
+            await sleep(180);
+        }
 
+        const data =
+            await postJSON(
+                "/scan",
+                { url }
+            );
 
-/* =========================
-   SCREENSHOT ANALYZER
-========================= */
-
-const screenshotInput = $("#screenshot-input");
-
-screenshotInput?.addEventListener(
-    "change",
-    () => {
-        const file = screenshotInput.files?.[0];
-
-        if (!file) {
-            setText("#selected-file", "No file selected");
-            return;
+        if (fill) {
+            fill.style.width = "100%";
         }
 
         setText(
-            "#selected-file",
-            `${file.name} (${Math.round(file.size / 1024)} KB)`
+            "website-progress-percent",
+            "100%"
         );
 
-        if (file.size > 5 * 1024 * 1024) {
-            showToast(
-                "Screenshot must be smaller than 5 MB.",
-                "warning"
-            );
+        renderRiskResult(
+            "website",
+            data
+        );
 
-            screenshotInput.value = "";
-            setText("#selected-file", "No file selected");
-        }
-    }
-);
+        recordScan(
+            "website",
+            Number(data.score) || 0
+        );
 
-$("#screenshot-form")?.addEventListener(
-    "submit",
-    async event => {
-        event.preventDefault();
+        showToast(
+            "Website analysis complete.",
+            "✓"
+        );
 
-        const file = screenshotInput?.files?.[0];
+    } catch (error) {
 
-        if (!file) {
-            showToast(
-                "Choose a screenshot first.",
-                "warning"
-            );
-            return;
-        }
+        showToast(
+            error.message ||
+            "Website scan failed.",
+            "❌"
+        );
 
-        if (file.size > 5 * 1024 * 1024) {
-            showToast(
-                "Screenshot must be smaller than 5 MB.",
-                "warning"
-            );
-            return;
-        }
-
-        const button = $("#analyze-screenshot-btn");
+    } finally {
 
         setButtonLoading(
             button,
-            true,
-            "Analyzing..."
+            false
+        );
+    }
+}
+
+$("scan-website-btn")
+    ?.addEventListener(
+        "click",
+        scanWebsite
+    );
+
+$("website-url")
+    ?.addEventListener(
+        "keydown",
+        event => {
+
+            if (event.key === "Enter") {
+                scanWebsite();
+            }
+        }
+    );
+
+
+/* =========================================================
+   MESSAGE SCANNER
+========================================================= */
+
+async function scanMessage() {
+
+    const input =
+        $("message-text");
+
+    const button =
+        $("scan-message-btn");
+
+    if (!input || !button) return;
+
+    const message =
+        input.value.trim();
+
+    if (!message) {
+
+        showToast(
+            "Paste a suspicious message first.",
+            "⚠️"
         );
 
-        try {
-            const formData = new FormData();
+        input.focus();
 
-            formData.append("screenshot", file);
-
-            const response = await fetch(
-                "/analyze-screenshot",
-                {
-                    method: "POST",
-                    body: formData
-                }
-            );
-
-            const data = await response.json();
-
-            if (!response.ok) {
-                throw new Error(
-                    data.error ||
-                    "Screenshot analysis failed."
-                );
-            }
-
-            setText(
-                "#screenshot-summary",
-                data.summary ||
-                "Indicator-based screenshot analysis completed."
-            );
-
-            const indicators =
-                $("#screenshot-indicators");
-
-            if (indicators) {
-                const items =
-                    Array.isArray(data.indicators)
-                        ? data.indicators
-                        : [];
-
-                indicators.innerHTML = items.length
-                    ? items.map(item =>
-                        `<li>${escapeHTML(item)}</li>`
-                    ).join("")
-                    : `<li>No obvious indicators detected.</li>`;
-            }
-
-            show($("#screenshot-result"));
-
-            showToast(
-                "Screenshot analysis completed.",
-                "success"
-            );
-        } catch (error) {
-            showToast(error.message, "error");
-        } finally {
-            setButtonLoading(button, false);
-        }
-    }
-);
-
-
-/* =========================
-   CYBER FRAUD GAME
-========================= */
-
-const QUESTION_BANK = [
-    {
-        q: "You receive a message saying your bank account will be blocked today unless you verify a link. What should you do?",
-        options: [
-            "Click immediately",
-            "Share OTP",
-            "Open the official bank app directly",
-            "Forward it to friends"
-        ],
-        answer: 2,
-        difficulty: "Easy",
-        points: 10
-    },
-    {
-        q: "Someone claiming to be customer support asks for your UPI PIN. What is the safest response?",
-        options: [
-            "Give it if they know your name",
-            "Never share the UPI PIN",
-            "Send half of the PIN",
-            "Ask them to call later"
-        ],
-        answer: 1,
-        difficulty: "Easy",
-        points: 10
-    },
-    {
-        q: "A website uses a familiar brand logo but its domain has many strange words. What should you check?",
-        options: [
-            "Logo quality only",
-            "Domain name carefully",
-            "Number of animations",
-            "Background color"
-        ],
-        answer: 1,
-        difficulty: "Easy",
-        points: 10
-    },
-    {
-        q: "You receive an OTP you did not request. What should you do?",
-        options: [
-            "Share it with support",
-            "Ignore it and investigate account activity",
-            "Reply with the OTP",
-            "Post it online"
-        ],
-        answer: 1,
-        difficulty: "Easy",
-        points: 10
-    },
-    {
-        q: "A friend suddenly asks for money through a new UPI ID. What is safest?",
-        options: [
-            "Send immediately",
-            "Verify through another trusted channel",
-            "Ask for their OTP",
-            "Send a small amount first"
-        ],
-        answer: 1,
-        difficulty: "Easy",
-        points: 10
-    },
-    {
-        q: "A job recruiter asks you to pay a registration fee before an interview. What is this a warning sign of?",
-        options: [
-            "Normal hiring",
-            "Possible job scam",
-            "Guaranteed employment",
-            "Government verification"
-        ],
-        answer: 1,
-        difficulty: "Easy",
-        points: 10
-    },
-    {
-        q: "Which information should never be shared with an unknown person?",
-        options: [
-            "Favorite movie",
-            "OTP",
-            "Public username",
-            "Favorite color"
-        ],
-        answer: 1,
-        difficulty: "Easy",
-        points: 10
-    },
-    {
-        q: "A message says you won a lottery you never entered. What should you suspect?",
-        options: [
-            "Guaranteed prize",
-            "Possible scam",
-            "Bank refund",
-            "Normal notification"
-        ],
-        answer: 1,
-        difficulty: "Easy",
-        points: 10
-    },
-    {
-        q: "What does HTTPS mainly indicate?",
-        options: [
-            "The website is guaranteed legitimate",
-            "The connection is encrypted",
-            "The website cannot be hacked",
-            "The owner is verified"
-        ],
-        answer: 1,
-        difficulty: "Easy",
-        points: 10
-    },
-    {
-        q: "A stranger sends you a shortened URL and asks you to log in. What should you do?",
-        options: [
-            "Click without checking",
-            "Avoid it and verify the destination",
-            "Enter only your username",
-            "Share it publicly"
-        ],
-        answer: 1,
-        difficulty: "Easy",
-        points: 10
-    },
-
-    {
-        q: "An attacker says they are from your bank and creates urgency to make you reveal account details. Which technique is being used?",
-        options: [
-            "Social engineering",
-            "Compression",
-            "Encryption",
-            "Caching"
-        ],
-        answer: 0,
-        difficulty: "Medium",
-        points: 20
-    },
-    {
-        q: "A fake login page copies the design of a popular service. What is its main goal?",
-        options: [
-            "Improve performance",
-            "Steal credentials",
-            "Increase battery life",
-            "Update the browser"
-        ],
-        answer: 1,
-        difficulty: "Medium",
-        points: 20
-    },
-    {
-        q: "You receive an email attachment from an unknown sender. What is safest?",
-        options: [
-            "Open it immediately",
-            "Verify sender before opening",
-            "Forward it",
-            "Disable antivirus"
-        ],
-        answer: 1,
-        difficulty: "Medium",
-        points: 20
-    },
-    {
-        q: "A website URL contains an @ symbol before the real domain. Why can this be suspicious?",
-        options: [
-            "It always improves security",
-            "It can disguise the actual destination",
-            "It makes the site faster",
-            "It confirms ownership"
-        ],
-        answer: 1,
-        difficulty: "Medium",
-        points: 20
-    },
-    {
-        q: "Someone asks you to install remote-control software to receive a refund. What should you do?",
-        options: [
-            "Install it",
-            "Give them full access",
-            "Refuse and contact the company independently",
-            "Disable device security"
-        ],
-        answer: 2,
-        difficulty: "Medium",
-        points: 20
-    },
-    {
-        q: "A social-media profile has copied photos, very new activity, and asks for money. What should you do?",
-        options: [
-            "Send money",
-            "Verify identity independently",
-            "Give your OTP",
-            "Share your password"
-        ],
-        answer: 1,
-        difficulty: "Medium",
-        points: 20
-    },
-    {
-        q: "Why should you avoid reusing the same password across important accounts?",
-        options: [
-            "It slows the internet",
-            "One breach can expose multiple accounts",
-            "It prevents updates",
-            "It removes 2FA"
-        ],
-        answer: 1,
-        difficulty: "Medium",
-        points: 20
-    },
-    {
-        q: "What is a strong sign of phishing?",
-        options: [
-            "Unexpected urgency and a login link",
-            "Normal greeting",
-            "Company logo alone",
-            "Email signature alone"
-        ],
-        answer: 0,
-        difficulty: "Medium",
-        points: 20
-    },
-    {
-        q: "A caller knows some public information about you and uses it to gain trust. What is happening?",
-        options: [
-            "Social engineering",
-            "Software compilation",
-            "Data compression",
-            "Screen mirroring"
-        ],
-        answer: 0,
-        difficulty: "Medium",
-        points: 20
-    },
-    {
-        q: "A payment request says you must scan a QR code to receive money. What should you remember?",
-        options: [
-            "Scanning always receives money",
-            "UPI PIN is generally used when sending money",
-            "QR codes are always safe",
-            "Anyone requesting payment is trusted"
-        ],
-        answer: 1,
-        difficulty: "Medium",
-        points: 20
-    },
-
-    {
-        q: "A domain uses a punycode-style name that visually resembles a trusted brand. What attack can this facilitate?",
-        options: [
-            "Homograph impersonation",
-            "Battery optimization",
-            "Video compression",
-            "Database backup"
-        ],
-        answer: 0,
-        difficulty: "Hard",
-        points: 30
-    },
-    {
-        q: "An attacker sends a realistic voice recording pretending to be a family member asking for urgent money. What should you do?",
-        options: [
-            "Trust the voice immediately",
-            "Verify using a separate known contact method",
-            "Send money first",
-            "Share your OTP"
-        ],
-        answer: 1,
-        difficulty: "Hard",
-        points: 30
-    },
-    {
-        q: "A company website is HTTPS but has a suspicious domain and unusual payment instructions. What does HTTPS NOT prove?",
-        options: [
-            "The connection is encrypted",
-            "The site is legitimate",
-            "Traffic is protected in transit",
-            "The browser can establish TLS"
-        ],
-        answer: 1,
-        difficulty: "Hard",
-        points: 30
-    },
-    {
-        q: "An attacker uses information from your public social profile to make a convincing scam message. What is this?",
-        options: [
-            "Reconnaissance for social engineering",
-            "Normal personalization",
-            "Software patching",
-            "Firewall configuration"
-        ],
-        answer: 0,
-        difficulty: "Hard",
-        points: 30
-    },
-    {
-        q: "You clicked a suspicious link but did not enter credentials. What is a sensible next step?",
-        options: [
-            "Ignore everything",
-            "Close it and run security checks/update software",
-            "Share the link",
-            "Disable antivirus"
-        ],
-        answer: 1,
-        difficulty: "Hard",
-        points: 30
-    },
-    {
-        q: "Your email password was exposed in a breach. What should you prioritize?",
-        options: [
-            "Reuse the password elsewhere",
-            "Change it and enable 2FA",
-            "Post it for warning",
-            "Ignore the breach"
-        ],
-        answer: 1,
-        difficulty: "Hard",
-        points: 30
-    },
-    {
-        q: "A scammer asks you to transfer money to a 'safe account' to protect your funds. What is this?",
-        options: [
-            "Standard bank procedure",
-            "Common impersonation scam tactic",
-            "Required UPI security",
-            "Normal KYC"
-        ],
-        answer: 1,
-        difficulty: "Hard",
-        points: 30
-    },
-    {
-        q: "A suspicious app requests SMS, accessibility, contacts and screen-control permissions without a clear reason. What should you do?",
-        options: [
-            "Grant everything",
-            "Review legitimacy and avoid unnecessary permissions",
-            "Disable lock screen",
-            "Share OTP"
-        ],
-        answer: 1,
-        difficulty: "Hard",
-        points: 30
-    },
-    {
-        q: "A social-media account sends you a login code and asks you to forward it to them. What is the likely goal?",
-        options: [
-            "Account takeover",
-            "Profile optimization",
-            "Password recovery for you",
-            "Verification of your device"
-        ],
-        answer: 0,
-        difficulty: "Hard",
-        points: 30
-    },
-    {
-        q: "A fake support number appears in a search result and asks you to install remote-access software. What is the safest approach?",
-        options: [
-            "Use the number",
-            "Use contact details from the official website/app",
-            "Give them your PIN",
-            "Install the software"
-        ],
-        answer: 1,
-        difficulty: "Hard",
-        points: 30
-    },
-
-    {
-        q: "You discover that someone may have taken over your social account. What should you do first?",
-        options: [
-            "Send them money",
-            "Secure the account using official recovery methods",
-            "Delete all evidence",
-            "Share your new password"
-        ],
-        answer: 1,
-        difficulty: "Expert",
-        points: 50
-    },
-    {
-        q: "A deepfake video appears to show a trusted person requesting an emergency transfer. What is the strongest verification?",
-        options: [
-            "Video quality",
-            "Independent communication through a known channel",
-            "Their profile picture",
-            "The number of followers"
-        ],
-        answer: 1,
-        difficulty: "Expert",
-        points: 50
-    },
-    {
-        q: "A website has HTTPS, a familiar logo, a copied privacy policy and a newly registered-looking domain. What should influence your decision most?",
-        options: [
-            "Logo",
-            "Overall trust signals including domain and context",
-            "Animation quality",
-            "HTTPS alone"
-        ],
-        answer: 1,
-        difficulty: "Expert",
-        points: 50
-    },
-    {
-        q: "An attacker combines leaked credentials, SIM-related tricks and social engineering to access an account. What is this best described as?",
-        options: [
-            "Multi-stage attack",
-            "Normal login",
-            "Browser caching",
-            "File compression"
-        ],
-        answer: 0,
-        difficulty: "Expert",
-        points: 50
-    },
-    {
-        q: "After accidentally sending money to a scammer, what should you do?",
-        options: [
-            "Wait several days",
-            "Immediately contact your bank/payment provider and report the fraud",
-            "Send more money",
-            "Delete transaction records"
-        ],
-        answer: 1,
-        difficulty: "Expert",
-        points: 50
-    },
-    {
-        q: "An attacker creates a convincing fake employee profile using a real person's public details. What risk is most relevant?",
-        options: [
-            "Identity impersonation",
-            "Battery drain only",
-            "Normal networking",
-            "Browser update"
-        ],
-        answer: 0,
-        difficulty: "Expert",
-        points: 50
-    },
-    {
-        q: "A suspicious login page asks for your password and 2FA code on the same page. What should you consider?",
-        options: [
-            "It is automatically safe",
-            "It may be attempting credential and session theft",
-            "2FA makes phishing impossible",
-            "The logo proves legitimacy"
-        ],
-        answer: 1,
-        difficulty: "Expert",
-        points: 50
-    },
-    {
-        q: "An investment group promises guaranteed returns and pressures you to deposit cryptocurrency quickly. What is the strongest warning sign?",
-        options: [
-            "Guaranteed returns and pressure",
-            "Professional logo",
-            "Group chat",
-            "Charts"
-        ],
-        answer: 0,
-        difficulty: "Expert",
-        points: 50
-    }
-];
-
-
-/* Create additional unique scenario variations
-   so the game has 100+ questions. */
-
-const extraTopics = [
-    ["parcel delivery", "customs payment", "unexpected delivery fee"],
-    ["electricity bill", "service disconnection", "urgent payment link"],
-    ["tax refund", "government impersonation", "bank details"],
-    ["college scholarship", "application fee", "fake portal"],
-    ["internship offer", "security deposit", "remote job"],
-    ["Instagram verification", "blue tick", "payment request"],
-    ["Facebook account warning", "copyright complaint", "login link"],
-    ["X/Twitter verification", "account suspension", "credential request"],
-    ["gaming reward", "free skins", "login page"],
-    ["crypto giveaway", "wallet connection", "private key"],
-    ["bank cashback", "refund link", "OTP request"],
-    ["credit-card reward", "KYC update", "payment link"],
-    ["SIM replacement", "identity verification", "OTP"],
-    ["Wi-Fi support", "remote access", "password request"],
-    ["antivirus alert", "fake support", "remote software"],
-    ["browser warning", "fake update", "malware"],
-    ["cloud storage", "account suspension", "login link"],
-    ["email storage", "mailbox full", "credential link"],
-    ["student loan", "processing fee", "bank details"],
-    ["exam result", "verification fee", "fake website"],
-    ["travel ticket", "refund scam", "payment request"],
-    ["hotel booking", "discount offer", "card details"],
-    ["food delivery", "refund link", "UPI request"],
-    ["online shopping", "prize coupon", "payment page"],
-    ["friend request", "fake profile", "money request"],
-    ["romance profile", "emergency request", "money transfer"],
-    ["charity appeal", "fake donation", "QR payment"],
-    ["job interview", "identity verification", "document upload"],
-    ["company HR", "salary account update", "login link"]
-];
-
-extraTopics.forEach((topic, index) => {
-    const [context, trigger, request] = topic;
-
-    QUESTION_BANK.push({
-        q: `You receive an unexpected ${context} message mentioning ${trigger} and asking for ${request}. What is the safest response?`,
-        options: [
-            "Act immediately because the message sounds urgent",
-            "Verify the claim using the official website or app",
-            "Share OTP to prove identity",
-            "Forward the message to everyone"
-        ],
-        answer: 1,
-        difficulty: index % 4 === 0
-            ? "Easy"
-            : index % 4 === 1
-                ? "Medium"
-                : index % 4 === 2
-                    ? "Hard"
-                    : "Expert",
-        points: index % 4 === 0
-            ? 10
-            : index % 4 === 1
-                ? 20
-                : index % 4 === 2
-                    ? 30
-                    : 50
-    });
-});
-
-for (let i = 0; i < 45; i++) {
-    const scenarios = [
-        "unexpected password reset",
-        "urgent account verification",
-        "fake customer support",
-        "suspicious cashback",
-        "unknown investment opportunity",
-        "fake scholarship",
-        "unexpected KYC request",
-        "social-media warning",
-        "fake delivery notification",
-        "unknown QR payment"
-    ];
-
-    const scenario =
-        scenarios[i % scenarios.length];
-
-    QUESTION_BANK.push({
-        q: `Scenario ${i + 1}: You receive an ${scenario} message with a link and pressure to act quickly. Which security principle should guide your decision?`,
-        options: [
-            "Trust urgency",
-            "Verify independently before acting",
-            "Share credentials to confirm identity",
-            "Disable security controls"
-        ],
-        answer: 1,
-        difficulty: i % 4 === 0
-            ? "Easy"
-            : i % 4 === 1
-                ? "Medium"
-                : i % 4 === 2
-                    ? "Hard"
-                    : "Expert",
-        points: i % 4 === 0
-            ? 10
-            : i % 4 === 1
-                ? 20
-                : i % 4 === 2
-                    ? 30
-                    : 50
-    });
-}
-
-setText(
-    "#question-bank-count",
-    `${QUESTION_BANK.length}+`
-);
-
-
-/* Game state */
-
-let gameQuestions = [];
-let gameIndex = 0;
-let gameScore = 0;
-let gameStreak = 0;
-let gameBestStreak = 0;
-let gameCorrect = 0;
-let gameWrong = 0;
-let gameStartTime = 0;
-let currentQuestionAnswered = false;
-let mistakes = [];
-
-function shuffle(array) {
-    const copy = [...array];
-
-    for (let i = copy.length - 1; i > 0; i--) {
-        const j = Math.floor(Math.random() * (i + 1));
-
-        [copy[i], copy[j]] =
-            [copy[j], copy[i]];
-    }
-
-    return copy;
-}
-
-function startGame() {
-    gameQuestions =
-        shuffle(QUESTION_BANK).slice(0, 15);
-
-    gameIndex = 0;
-    gameScore = 0;
-    gameStreak = 0;
-    gameBestStreak = 0;
-    gameCorrect = 0;
-    gameWrong = 0;
-    mistakes = [];
-    currentQuestionAnswered = false;
-
-    hide($("#game-start"));
-    hide($("#game-over"));
-    show($("#game-play"));
-
-    updateGameStats();
-    renderQuestion();
-}
-
-function renderQuestion() {
-    const question = gameQuestions[gameIndex];
-
-    if (!question) {
-        endGame();
         return;
     }
 
-    currentQuestionAnswered = false;
-    gameStartTime = Date.now();
-
-    setText(
-        "#question-number",
-        `Question ${gameIndex + 1} / ${gameQuestions.length}`
-    );
-
-    setText(
-        "#question-text",
-        question.q
-    );
-
-    setText(
-        "#question-difficulty",
-        question.difficulty
-    );
-
-    const optionsContainer =
-        $("#question-options");
-
-    if (!optionsContainer) return;
-
-    optionsContainer.innerHTML = "";
-
-    question.options.forEach((option, index) => {
-        const button =
-            document.createElement("button");
-
-        button.className = "game-option";
-        button.innerHTML = `
-            <span class="option-letter">
-                ${String.fromCharCode(65 + index)}
-            </span>
-            <span>${escapeHTML(option)}</span>
-        `;
-
-        button.addEventListener(
-            "click",
-            () => answerQuestion(index)
-        );
-
-        optionsContainer.appendChild(button);
-    });
-
     const progress =
-        ((gameIndex) / gameQuestions.length) * 100;
+        $("message-progress");
 
-    const gameProgress = $("#game-progress");
+    const result =
+        $("message-result");
 
-    if (gameProgress) {
-        gameProgress.style.width =
-            `${progress}%`;
-    }
+    show(progress);
+    hide(result);
 
-    setText(
-        "#game-score",
-        gameScore
+    setButtonLoading(
+        button,
+        true,
+        "ANALYZING..."
     );
 
-    setText(
-        "#game-streak",
-        gameStreak
-    );
+    const fill =
+        $("message-progress-fill");
 
-    setText(
-        "#game-correct",
-        gameCorrect
-    );
+    const stages = [
+        [20, "Reading message..."],
+        [40, "Detecting scam language..."],
+        [60, "Checking payment indicators..."],
+        [78, "Checking links and urgency..."],
+        [94, "Calculating risk..."]
+    ];
 
-    setText(
-        "#game-wrong",
-        gameWrong
-    );
+    try {
 
-    const feedback =
-        $("#answer-feedback");
+        for (const [percent, stage] of stages) {
 
-    if (feedback) {
-        feedback.className =
-            "answer-feedback hidden";
-
-        feedback.textContent = "";
-    }
-}
-
-function answerQuestion(selectedIndex) {
-    if (currentQuestionAnswered) return;
-
-    currentQuestionAnswered = true;
-
-    const question =
-        gameQuestions[gameIndex];
-
-    const buttons =
-        $$("#question-options .game-option");
-
-    buttons.forEach(button => {
-        button.disabled = true;
-    });
-
-    const correct =
-        selectedIndex === question.answer;
-
-    const elapsed =
-        Date.now() - gameStartTime;
-
-    if (correct) {
-        gameCorrect++;
-        gameStreak++;
-
-        gameBestStreak =
-            Math.max(
-                gameBestStreak,
-                gameStreak
+            setText(
+                "message-stages",
+                stage
             );
 
-        let earned = question.points;
-
-        if (elapsed < 5000) {
-            earned += 5;
-        }
-
-        if (gameStreak >= 3) {
-            earned += Math.min(
-                20,
-                gameStreak * 2
+            setText(
+                "message-progress-percent",
+                `${percent}%`
             );
+
+            if (fill) {
+                fill.style.width =
+                    `${percent}%`;
+            }
+
+            await sleep(180);
         }
 
-        gameScore += earned;
+        const data =
+            await postJSON(
+                "/scan-message",
+                { message }
+            );
 
-        buttons[selectedIndex]?.classList.add(
-            "correct"
+        if (fill) {
+            fill.style.width = "100%";
+        }
+
+        renderRiskResult(
+            "message",
+            data
         );
 
-        showAnswerFeedback(
-            `Correct! +${earned} points`,
-            "success"
+        recordScan(
+            "message",
+            Number(data.score) || 0
         );
 
         showToast(
-            `Correct! +${earned}`,
-            "success"
-        );
-    } else {
-        gameWrong++;
-        gameStreak = 0;
-
-        buttons[selectedIndex]?.classList.add(
-            "wrong"
+            "Message analysis complete.",
+            "✓"
         );
 
-        buttons[question.answer]?.classList.add(
-            "correct"
-        );
-
-        mistakes.push({
-            question: question.q,
-            selected: question.options[selectedIndex],
-            correct: question.options[question.answer]
-        });
-
-        showAnswerFeedback(
-            `Not quite. Correct answer: ${question.options[question.answer]}`,
-            "error"
-        );
+    } catch (error) {
 
         showToast(
-            "Incorrect — learn from this one!",
-            "error"
+            error.message ||
+            "Message analysis failed.",
+            "❌"
+        );
+
+    } finally {
+
+        setButtonLoading(
+            button,
+            false
         );
     }
-
-    updateGameStats();
-
-    setTimeout(() => {
-        gameIndex++;
-
-        if (gameIndex >= gameQuestions.length) {
-            endGame();
-        } else {
-            renderQuestion();
-        }
-    }, 1100);
 }
 
-function showAnswerFeedback(message, type) {
-    const feedback =
-        $("#answer-feedback");
-
-    if (!feedback) return;
-
-    feedback.textContent = message;
-    feedback.className =
-        `answer-feedback ${type}`;
-}
-
-function updateGameStats() {
-    setText("#game-score", gameScore);
-    setText("#game-streak", gameStreak);
-    setText("#game-correct", gameCorrect);
-    setText("#game-wrong", gameWrong);
-}
-
-function getGameLevel(score) {
-    if (score >= 400) return "SENTINEL Elite";
-    if (score >= 300) return "Cyber Defender";
-    if (score >= 200) return "Cyber Smart";
-    if (score >= 100) return "Aware";
-    return "Beginner";
-}
-
-function endGame() {
-    hide($("#game-play"));
-    show($("#game-over"));
-
-    const accuracy =
-        gameQuestions.length
-            ? Math.round(
-                (gameCorrect /
-                    gameQuestions.length) *
-                100
-            )
-            : 0;
-
-    setText("#final-score", gameScore);
-
-    setText(
-        "#final-level",
-        getGameLevel(gameScore)
+$("scan-message-btn")
+    ?.addEventListener(
+        "click",
+        scanMessage
     );
 
-    setText(
-        "#final-correct",
-        gameCorrect
-    );
 
-    setText(
-        "#final-wrong",
-        gameWrong
-    );
+/* =========================================================
+   MESSAGE DEMO
+========================================================= */
 
-    setText(
-        "#final-streak",
-        gameBestStreak
-    );
+$("message-demo-btn")
+    ?.addEventListener(
+        "click",
+        () => {
 
-    setText(
-        "#final-accuracy",
-        `${accuracy}%`
-    );
+            const message =
+                "URGENT! Your bank KYC has expired. Click https://bit.ly/verify-now immediately to update your account or it will be blocked. Share the OTP with our verification agent.";
 
-    const review =
-        $("#mistake-review");
-
-    if (review) {
-        if (!mistakes.length) {
-            review.innerHTML =
-                `<p>Perfect run! No mistakes to review. 🛡️</p>`;
-        } else {
-            review.innerHTML =
-                mistakes.map((mistake, index) => `
-                    <div class="mistake-item">
-                        <strong>${index + 1}. ${escapeHTML(mistake.question)}</strong>
-                        <p>Your answer: ${escapeHTML(mistake.selected)}</p>
-                        <p>Correct answer: ${escapeHTML(mistake.correct)}</p>
-                    </div>
-                `).join("");
-        }
-    }
-
-    const oldBest =
-        Number(
-            localStorage.getItem(
-                "sentinelGameBest"
-            ) || 0
-        );
-
-    if (gameScore > oldBest) {
-        localStorage.setItem(
-            "sentinelGameBest",
-            gameScore
-        );
-
-        dashboard.bestScore =
-            Math.max(
-                dashboard.bestScore,
-                gameScore
+            setText(
+                "message-text",
+                message
             );
 
-        saveDashboard();
+            const textarea =
+                $("message-text");
 
-        showToast(
-            "New personal best! 🏆",
-            "success"
-        );
-    }
+            if (textarea) {
+                textarea.value = message;
+            }
 
-    updateDashboard();
-}
-
-$("#start-game-btn")?.addEventListener(
-    "click",
-    startGame
-);
-
-$("#restart-game-btn")?.addEventListener(
-    "click",
-    startGame
-);
+            showToast(
+                "Demo scam message loaded.",
+                "🧪"
+            );
+        }
+    );
 
 
-/* =========================
+/* =========================================================
+   CLEAR MESSAGE
+========================================================= */
+
+$("clear-message-btn")
+    ?.addEventListener(
+        "click",
+        () => {
+
+            const input =
+                $("message-text");
+
+            if (input) {
+                input.value = "";
+            }
+
+            hide(
+                $("message-result")
+            );
+
+            showToast(
+                "Message cleared.",
+                "✓"
+            );
+        }
+    );
+
+
+/* =========================================================
+   SCREENSHOT FILE
+========================================================= */
+
+$("screenshot-input")
+    ?.addEventListener(
+        "change",
+        event => {
+
+            const file =
+                event.target.files?.[0];
+
+            const display =
+                $("selected-file");
+
+            if (!file) {
+
+                if (display) {
+                    display.textContent = "";
+                }
+
+                return;
+            }
+
+            if (file.size > 5 * 1024 * 1024) {
+
+                showToast(
+                    "Screenshot must be smaller than 5 MB.",
+                    "⚠️"
+                );
+
+                event.target.value = "";
+
+                if (display) {
+                    display.textContent = "";
+                }
+
+                return;
+            }
+
+            if (!file.type.startsWith("image/")) {
+
+                showToast(
+                    "Please select an image file.",
+                    "⚠️"
+                );
+
+                event.target.value = "";
+
+                return;
+            }
+
+            if (display) {
+
+                display.textContent =
+                    `✓ ${file.name}`;
+            }
+        }
+    );
+
+
+/* =========================================================
+   SCREENSHOT ANALYZER
+========================================================= */
+
+$("screenshot-form")
+    ?.addEventListener(
+        "submit",
+        async event => {
+
+            event.preventDefault();
+
+            const input =
+                $("screenshot-input");
+
+            const button =
+                $("analyze-screenshot-btn");
+
+            const file =
+                input?.files?.[0];
+
+            if (!file) {
+
+                showToast(
+                    "Upload a profile screenshot first.",
+                    "⚠️"
+                );
+
+                return;
+            }
+
+            setButtonLoading(
+                button,
+                true,
+                "ANALYZING..."
+            );
+
+            const formData =
+                new FormData();
+
+            formData.append(
+                "screenshot",
+                file
+            );
+
+            try {
+
+                const response =
+                    await fetch(
+                        "/analyze-screenshot",
+                        {
+                            method: "POST",
+                            body: formData
+                        }
+                    );
+
+                const data =
+                    await response.json();
+
+                if (!response.ok) {
+                    throw new Error(
+                        data.error ||
+                        "Screenshot analysis failed."
+                    );
+                }
+
+                const score =
+                    Number(data.score) || 0;
+
+                const info =
+                    getRiskInfo(score);
+
+                setText(
+                    "screenshot-score",
+                    score
+                );
+
+                setText(
+                    "screenshot-level",
+                    info.level
+                );
+
+                setText(
+                    "screenshot-summary",
+                    data.summary ||
+                    "Screenshot analysis completed."
+                );
+
+                const indicators =
+                    $("screenshot-indicators");
+
+                if (indicators) {
+
+                    indicators.innerHTML = "";
+
+                    const list =
+                        Array.isArray(data.indicators)
+                            ? data.indicators
+                            : [];
+
+                    list.forEach(item => {
+
+                        const li =
+                            document.createElement("li");
+
+                        li.textContent = item;
+
+                        indicators.appendChild(li);
+                    });
+                }
+
+                const actions =
+                    $("screenshot-actions");
+
+                if (actions) {
+
+                    actions.innerHTML = "";
+
+                    const list =
+                        Array.isArray(data.actions)
+                            ? data.actions
+                            : [
+                                "Verify the account independently.",
+                                "Do not send money or OTPs.",
+                                "Do not open suspicious links."
+                            ];
+
+                    list.forEach(item => {
+
+                        const li =
+                            document.createElement("li");
+
+                        li.textContent = item;
+
+                        actions.appendChild(li);
+                    });
+                }
+
+                show(
+                    $("screenshot-result")
+                );
+
+                recordScan(
+                    "social",
+                    score
+                );
+
+                if (score >= 70) {
+
+                    playDangerSound();
+                    triggerDangerMode();
+                }
+
+                showToast(
+                    "Screenshot analysis complete.",
+                    "✓"
+                );
+
+            } catch (error) {
+
+                showToast(
+                    error.message ||
+                    "Screenshot analysis failed.",
+                    "❌"
+                );
+
+            } finally {
+
+                setButtonLoading(
+                    button,
+                    false
+                );
+            }
+        }
+    );
+
+
+/* =========================================================
    AI CHAT
-========================= */
+========================================================= */
 
-function addChatMessage(message, type = "ai") {
-    const container = $("#chat-messages");
+const aiBall =
+    $("ai-ball");
 
-    if (!container) return;
+const aiChat =
+    $("ai-chat");
+
+const aiPopup =
+    $("ai-chat-popup");
+
+const aiPopupClose =
+    $("ai-popup-close");
+
+const chatClose =
+    $("chat-close");
+
+const chatMinimize =
+    $("chat-minimize");
+
+const chatInput =
+    $("chat-input");
+
+const chatSend =
+    $("chat-send");
+
+const chatMessages =
+    $("chat-messages");
+
+const chatTyping =
+    $("chat-typing");
+
+
+function openAIChat() {
+
+    if (!aiChat) return;
+
+    aiChat.classList.add("open");
+
+    if (aiPopup) {
+        aiPopup.style.display = "none";
+    }
+
+    if (chatInput) {
+        setTimeout(
+            () => chatInput.focus(),
+            150
+        );
+    }
+}
+
+function closeAIChat() {
+
+    if (aiChat) {
+        aiChat.classList.remove("open");
+    }
+}
+
+function addChatMessage(
+    message,
+    type = "bot"
+) {
+
+    if (!chatMessages) return;
+
+    const wrapper =
+        document.createElement("div");
+
+    wrapper.className =
+        `chat-message ${type}`;
+
+    const avatar =
+        document.createElement("div");
+
+    avatar.className = "avatar";
+
+    avatar.textContent =
+        type === "user"
+            ? "👤"
+            : "🛡️";
 
     const bubble =
         document.createElement("div");
 
-    bubble.className =
-        `chat-message ${type}`;
+    bubble.className = "message";
 
-    bubble.innerHTML =
-        `<div class="chat-bubble">${escapeHTML(message)}</div>`;
+    const title =
+        document.createElement("strong");
 
-    container.appendChild(bubble);
+    title.textContent =
+        type === "user"
+            ? "YOU"
+            : "SENTINEL AI";
 
-    container.scrollTop =
-        container.scrollHeight;
+    const text =
+        document.createElement("p");
+
+    text.textContent = message;
+
+    bubble.appendChild(title);
+    bubble.appendChild(text);
+
+    wrapper.appendChild(avatar);
+    wrapper.appendChild(bubble);
+
+    chatMessages.appendChild(wrapper);
+
+    chatMessages.scrollTop =
+        chatMessages.scrollHeight;
 }
 
-function showChatTyping(showTyping) {
-    const typing =
-        $("#chat-typing");
-
-    if (!typing) return;
-
-    typing.classList.toggle(
-        "hidden",
-        !showTyping
-    );
-}
-
-function toggleChat() {
-    const chat = $("#ai-chat");
-
-    if (!chat) return;
-
-    chat.classList.toggle("hidden");
-
-    if (!chat.classList.contains("hidden")) {
-        $("#chat-input")?.focus();
-    }
-}
-
-$("#ai-ball")?.addEventListener(
-    "click",
-    toggleChat
-);
-
-$("#chat-close")?.addEventListener(
-    "click",
-    () => {
-        hide($("#ai-chat"));
-    }
-);
-
-$("#chat-minimize")?.addEventListener(
-    "click",
-    () => {
-        hide($("#ai-chat"));
-    }
-);
 
 async function sendChatMessage() {
-    const input = $("#chat-input");
-    const message = input?.value.trim();
+
+    if (!chatInput) return;
+
+    const message =
+        chatInput.value.trim();
 
     if (!message) return;
 
@@ -1824,126 +1251,914 @@ async function sendChatMessage() {
         "user"
     );
 
-    input.value = "";
+    chatInput.value = "";
 
-    showChatTyping(true);
+    show(chatTyping);
 
     try {
-        const data = await postJSON(
-            "/chat",
-            {
-                message: message
-            }
-        );
 
-        await sleep(450);
+        const response =
+            await postJSON(
+                "/chat",
+                {
+                    message
+                }
+            );
+
+        hide(chatTyping);
 
         addChatMessage(
-            data.response ||
-            data.message ||
-            "I couldn't process that right now.",
-            "ai"
+            response.reply ||
+            response.message ||
+            "I couldn't generate a response right now."
         );
+
     } catch (error) {
+
+        hide(chatTyping);
+
         addChatMessage(
-            "I couldn't connect to the security assistant right now. Please try again.",
-            "ai"
+            "I couldn't connect to the Cyber AI service right now. You can still use the website and message scanners."
         );
-    } finally {
-        showChatTyping(false);
+
+        console.error(
+            "AI chat error:",
+            error
+        );
     }
 }
 
-$("#chat-send")?.addEventListener(
+aiBall?.addEventListener(
+    "click",
+    openAIChat
+);
+
+aiPopup?.addEventListener(
+    "click",
+    event => {
+
+        if (
+            event.target !== aiPopupClose
+        ) {
+            openAIChat();
+        }
+    }
+);
+
+aiPopupClose?.addEventListener(
+    "click",
+    event => {
+
+        event.stopPropagation();
+
+        if (aiPopup) {
+            aiPopup.style.display = "none";
+        }
+    }
+);
+
+chatClose?.addEventListener(
+    "click",
+    closeAIChat
+);
+
+chatMinimize?.addEventListener(
+    "click",
+    closeAIChat
+);
+
+chatSend?.addEventListener(
     "click",
     sendChatMessage
 );
 
-$("#chat-input")?.addEventListener(
+chatInput?.addEventListener(
     "keydown",
     event => {
+
         if (
             event.key === "Enter" &&
             !event.shiftKey
         ) {
+
             event.preventDefault();
+
             sendChatMessage();
         }
     }
 );
 
 
-/* =========================
+/* =========================================================
+   AI POPUP AUTO HIDE
+========================================================= */
+
+setTimeout(() => {
+
+    if (aiPopup) {
+        aiPopup.style.display = "none";
+    }
+
+}, 6500);
+
+
+/* =========================================================
    KEYBOARD SHORTCUT
-========================= */
+========================================================= */
 
 document.addEventListener(
     "keydown",
     event => {
+
         if (
             (event.ctrlKey || event.metaKey) &&
             event.key.toLowerCase() === "k"
         ) {
+
             event.preventDefault();
 
-            const input =
-                $("#website-url");
-
-            if (input) {
-                openSection("scanner");
-                input.focus();
-            }
+            openAIChat();
         }
 
-        if (event.key === "Escape") {
-            hide($("#ai-chat"));
+        if (
+            event.key === "Escape" &&
+            aiChat?.classList.contains("open")
+        ) {
+
+            closeAIChat();
         }
     }
 );
 
 
-/* =========================
-   INITIALIZATION
-========================= */
+/* =========================================================
+   GAME
+========================================================= */
 
-function initializeSentinel() {
-    loadDashboard();
+const QUESTION_BANK = [
 
-    const activeSection =
-        $(".page-section.active");
+    {
+        q: "You receive an SMS saying your bank account will be blocked unless you click a link. What should you do?",
+        options: [
+            "Click immediately",
+            "Share OTP",
+            "Verify through the official bank app/site",
+            "Reply with your account number"
+        ],
+        answer: 2,
+        difficulty: "EASY",
+        points: 10
+    },
 
-    if (!activeSection) {
-        const home =
-            $("#home");
+    {
+        q: "Someone asks for your UPI PIN to send money to you. What is correct?",
+        options: [
+            "Give the PIN",
+            "UPI PIN is not required to receive money",
+            "Send OTP instead",
+            "Give ATM PIN"
+        ],
+        answer: 1,
+        difficulty: "EASY",
+        points: 10
+    },
 
-        if (home) {
-            home.classList.add("active");
-        }
+    {
+        q: "A job recruiter asks you to pay a registration fee before an interview. What is the strongest warning sign?",
+        options: [
+            "Professional email",
+            "Video interview",
+            "Upfront payment demand",
+            "Job description"
+        ],
+        answer: 2,
+        difficulty: "EASY",
+        points: 10
+    },
+
+    {
+        q: "Which URL is most suspicious?",
+        options: [
+            "https://www.google.com",
+            "https://bank.example.com",
+            "http://secure-bank-login.example.xyz",
+            "https://www.microsoft.com"
+        ],
+        answer: 2,
+        difficulty: "MEDIUM",
+        points: 20
+    },
+
+    {
+        q: "What is phishing?",
+        options: [
+            "A backup technique",
+            "A social engineering attack to steal information",
+            "A firewall",
+            "A password manager"
+        ],
+        answer: 1,
+        difficulty: "EASY",
+        points: 10
+    },
+
+    {
+        q: "A caller claims to be from a bank and asks for your OTP. What should you do?",
+        options: [
+            "Share it",
+            "Read half of it",
+            "Refuse and contact the bank independently",
+            "Send it by SMS"
+        ],
+        answer: 2,
+        difficulty: "EASY",
+        points: 10
+    },
+
+    {
+        q: "Which is the safest way to verify a suspicious link?",
+        options: [
+            "Click it and inspect later",
+            "Search for the official website independently",
+            "Ask the sender for another link",
+            "Disable antivirus"
+        ],
+        answer: 1,
+        difficulty: "MEDIUM",
+        points: 20
+    },
+
+    {
+        q: "What does 2FA provide?",
+        options: [
+            "Two usernames",
+            "An additional authentication layer",
+            "Two bank accounts",
+            "Automatic antivirus"
+        ],
+        answer: 1,
+        difficulty: "EASY",
+        points: 10
+    },
+
+    {
+        q: "A social media profile copies a celebrity's name and asks followers for money. What should you suspect?",
+        options: [
+            "Official promotion",
+            "Impersonation scam",
+            "Normal giveaway",
+            "Verified banking account"
+        ],
+        answer: 1,
+        difficulty: "MEDIUM",
+        points: 20
+    },
+
+    {
+        q: "You accidentally transferred money to a scammer in India. What should you do first?",
+        options: [
+            "Wait one week",
+            "Send more money",
+            "Report immediately through 1930",
+            "Delete all evidence"
+        ],
+        answer: 2,
+        difficulty: "MEDIUM",
+        points: 20
+    },
+
+    {
+        q: "Which password is strongest?",
+        options: [
+            "mohit123",
+            "password123",
+            "A long unique password/passphrase",
+            "12345678"
+        ],
+        answer: 2,
+        difficulty: "EASY",
+        points: 10
+    },
+
+    {
+        q: "What should you do with an unknown APK sent through WhatsApp?",
+        options: [
+            "Install it",
+            "Forward it",
+            "Avoid installing it",
+            "Disable Play Protect"
+        ],
+        answer: 2,
+        difficulty: "MEDIUM",
+        points: 20
+    },
+
+    {
+        q: "An investment platform promises guaranteed huge returns with no risk. What is this?",
+        options: [
+            "Normal banking",
+            "Potential investment scam",
+            "Government guarantee",
+            "Password reset"
+        ],
+        answer: 1,
+        difficulty: "MEDIUM",
+        points: 20
+    },
+
+    {
+        q: "Why can urgency be a phishing warning sign?",
+        options: [
+            "Attackers use pressure to prevent careful verification",
+            "Urgent messages are always legitimate",
+            "Banks always use urgency",
+            "It improves encryption"
+        ],
+        answer: 0,
+        difficulty: "MEDIUM",
+        points: 20
+    },
+
+    {
+        q: "What should you do if a website asks for your OTP unexpectedly?",
+        options: [
+            "Enter it",
+            "Share it with support",
+            "Stop and verify the website",
+            "Send a screenshot"
+        ],
+        answer: 2,
+        difficulty: "EASY",
+        points: 10
+    },
+
+    {
+        q: "What is social engineering?",
+        options: [
+            "Manipulating people into revealing information or taking unsafe actions",
+            "Building social networks",
+            "Encrypting files",
+            "Updating software"
+        ],
+        answer: 0,
+        difficulty: "MEDIUM",
+        points: 20
+    },
+
+    {
+        q: "A fake courier message says you must pay ₹25 immediately to release a parcel. What should you do?",
+        options: [
+            "Pay immediately",
+            "Verify through the courier's official website",
+            "Share card details",
+            "Give OTP"
+        ],
+        answer: 1,
+        difficulty: "MEDIUM",
+        points: 20
+    },
+
+    {
+        q: "What is credential phishing mainly trying to steal?",
+        options: [
+            "Wallpaper",
+            "Login information",
+            "Screen brightness",
+            "Battery power"
+        ],
+        answer: 1,
+        difficulty: "EASY",
+        points: 10
+    },
+
+    {
+        q: "Which practice improves account security?",
+        options: [
+            "Reuse passwords",
+            "Enable 2FA",
+            "Share recovery codes",
+            "Use public passwords"
+        ],
+        answer: 1,
+        difficulty: "EASY",
+        points: 10
+    },
+
+    {
+        q: "A caller says they are police and threatens arrest unless you transfer money. What should you suspect?",
+        options: [
+            "Routine verification",
+            "Possible impersonation/extortion scam",
+            "Normal banking process",
+            "Password reset"
+        ],
+        answer: 1,
+        difficulty: "HARD",
+        points: 30
     }
 
-    const best =
-        Number(
-            localStorage.getItem(
-                "sentinelGameBest"
-            ) || 0
-        );
+];
 
-    if (best > dashboard.bestScore) {
-        dashboard.bestScore = best;
-        saveDashboard();
+
+/* Generate additional safe variations */
+const variationTemplates = [
+
+    "You receive a suspicious message asking you to verify your account urgently. What is the safest response?",
+    "A stranger requests an OTP claiming it is required for verification. What should you do?",
+    "A website uses a very unusual domain and asks for banking credentials. What should you do?",
+    "A social media account promises guaranteed investment returns. What is the safest approach?",
+    "Someone asks you to install an unknown application to receive a refund. What should you do?",
+    "A message claims you won a prize but asks for a processing fee. What should you suspect?",
+    "A caller asks for your card PIN while pretending to be customer support. What should you do?",
+    "A shortened URL arrives from an unknown person. What should you do before opening it?",
+    "A recruiter asks for money before offering a job. What is the warning sign?",
+    "A suspicious account copies a friend's profile photo and asks for money. What should you do?"
+];
+
+variationTemplates.forEach(
+    (question, index) => {
+
+        QUESTION_BANK.push({
+
+            q: question,
+
+            options: [
+                "Act immediately",
+                "Share sensitive information",
+                "Verify independently before acting",
+                "Send payment"
+            ],
+
+            answer: 2,
+
+            difficulty:
+                index % 3 === 0
+                    ? "EASY"
+                    : index % 3 === 1
+                        ? "MEDIUM"
+                        : "HARD",
+
+            points:
+                index % 3 === 0
+                    ? 10
+                    : index % 3 === 1
+                        ? 20
+                        : 30
+        });
+    }
+);
+
+
+/* Add generated awareness questions */
+const generatedTopics = [
+    "OTP",
+    "UPI",
+    "passwords",
+    "phishing links",
+    "fake jobs",
+    "fake investments",
+    "social impersonation",
+    "malware",
+    "fake courier messages",
+    "account takeover",
+    "email phishing",
+    "QR scams",
+    "bank impersonation",
+    "fake customer support",
+    "romance scams"
+];
+
+generatedTopics.forEach(
+    (topic, index) => {
+
+        QUESTION_BANK.push({
+
+            q:
+                `Which action is safest when dealing with a suspicious ${topic} situation?`,
+
+            options: [
+                "Trust it immediately",
+                "Share OTP/PIN",
+                "Verify through an independent trusted source",
+                "Send money"
+            ],
+
+            answer: 2,
+
+            difficulty:
+                index % 4 === 0
+                    ? "EASY"
+                    : index % 4 === 1
+                        ? "MEDIUM"
+                        : index % 4 === 2
+                            ? "HARD"
+                            : "EXPERT",
+
+            points:
+                index % 4 === 0
+                    ? 10
+                    : index % 4 === 1
+                        ? 20
+                        : index % 4 === 2
+                            ? 30
+                            : 50
+        });
+    }
+);
+
+
+let gameQuestions = [];
+let currentQuestion = 0;
+let gameScore = 0;
+let gameStreak = 0;
+let bestStreak = 0;
+let correctAnswers = 0;
+let wrongAnswers = 0;
+let mistakes = [];
+let questionStartTime = 0;
+
+
+function shuffle(array) {
+
+    const copy = [...array];
+
+    for (
+        let i = copy.length - 1;
+        i > 0;
+        i--
+    ) {
+
+        const j =
+            Math.floor(
+                Math.random() * (i + 1)
+            );
+
+        [
+            copy[i],
+            copy[j]
+        ] = [
+            copy[j],
+            copy[i]
+        ];
+    }
+
+    return copy;
+}
+
+
+function startGame() {
+
+    gameQuestions =
+        shuffle(QUESTION_BANK)
+            .slice(0, 15);
+
+    currentQuestion = 0;
+    gameScore = 0;
+    gameStreak = 0;
+    bestStreak = 0;
+    correctAnswers = 0;
+    wrongAnswers = 0;
+    mistakes = [];
+
+    hide($("game-start"));
+    hide($("game-over"));
+
+    show($("game-play"));
+
+    updateGameStats();
+
+    loadQuestion();
+}
+
+
+function loadQuestion() {
+
+    const question =
+        gameQuestions[currentQuestion];
+
+    if (!question) {
+
+        endGame();
+
+        return;
     }
 
     setText(
-        "#question-bank-count",
-        `${QUESTION_BANK.length}+`
+        "question-number",
+        `${currentQuestion + 1}/15`
     );
 
-    console.log(
-        `SENTINEL initialized with ${QUESTION_BANK.length} cyber-fraud scenarios.`
+    setText(
+        "question-text",
+        question.q
+    );
+
+    setText(
+        "question-difficulty",
+        question.difficulty
+    );
+
+    const progress =
+        $("game-progress");
+
+    if (progress) {
+
+        progress.style.width =
+            `${(currentQuestion / 15) * 100}%`;
+    }
+
+    const options =
+        $("question-options");
+
+    if (!options) return;
+
+    options.innerHTML = "";
+
+    question.options.forEach(
+        (option, index) => {
+
+            const button =
+                document.createElement("button");
+
+            button.textContent =
+                option;
+
+            button.addEventListener(
+                "click",
+                () => answerQuestion(index)
+            );
+
+            options.appendChild(button);
+        }
+    );
+
+    setText(
+        "answer-feedback",
+        ""
+    );
+
+    questionStartTime =
+        Date.now();
+}
+
+
+function answerQuestion(selected) {
+
+    const question =
+        gameQuestions[currentQuestion];
+
+    if (!question) return;
+
+    const buttons =
+        $$("#question-options button");
+
+    buttons.forEach(
+        button => {
+            button.disabled = true;
+        }
+    );
+
+    const elapsed =
+        (Date.now() - questionStartTime) / 1000;
+
+    const correct =
+        selected === question.answer;
+
+    if (correct) {
+
+        correctAnswers++;
+
+        gameStreak++;
+
+        bestStreak =
+            Math.max(
+                bestStreak,
+                gameStreak
+            );
+
+        let points =
+            question.points;
+
+        if (elapsed < 5) {
+            points += 5;
+        }
+
+        if (gameStreak >= 3) {
+            points += 5;
+        }
+
+        gameScore += points;
+
+        setText(
+            "answer-feedback",
+            `✓ Correct! +${points} points`
+        );
+
+    } else {
+
+        wrongAnswers++;
+
+        gameStreak = 0;
+
+        mistakes.push({
+            question: question.q,
+            correct:
+                question.options[
+                    question.answer
+                ],
+            selected:
+                question.options[selected]
+        });
+
+        setText(
+            "answer-feedback",
+            `✕ Incorrect. Correct answer: ${question.options[question.answer]}`
+        );
+    }
+
+    updateGameStats();
+
+    setTimeout(
+        () => {
+
+            currentQuestion++;
+
+            loadQuestion();
+
+        },
+        900
     );
 }
 
-document.addEventListener(
-    "DOMContentLoaded",
-    initializeSentinel
+
+function updateGameStats() {
+
+    setText(
+        "game-score",
+        gameScore
+    );
+
+    setText(
+        "game-streak",
+        gameStreak
+    );
+
+    setText(
+        "game-correct",
+        correctAnswers
+    );
+
+    setText(
+        "game-wrong",
+        wrongAnswers
+    );
+
+    setText(
+        "game-best-streak",
+        bestStreak
+    );
+}
+
+
+function endGame() {
+
+    hide($("game-play"));
+    show($("game-over"));
+
+    const accuracy =
+        Math.round(
+            (correctAnswers / 15) * 100
+        );
+
+    let level =
+        "BEGINNER";
+
+    if (accuracy >= 60) {
+        level = "CYBER LEARNER";
+    }
+
+    if (accuracy >= 75) {
+        level = "CYBER DEFENDER";
+    }
+
+    if (accuracy >= 90) {
+        level = "CYBER GUARDIAN";
+    }
+
+    setText(
+        "final-score",
+        gameScore
+    );
+
+    setText(
+        "final-level",
+        level
+    );
+
+    setText(
+        "final-correct",
+        correctAnswers
+    );
+
+    setText(
+        "final-wrong",
+        wrongAnswers
+    );
+
+    setText(
+        "final-streak",
+        bestStreak
+    );
+
+    setText(
+        "final-accuracy",
+        `${accuracy}%`
+    );
+
+    const mistakeReview =
+        $("mistake-review");
+
+    if (mistakeReview) {
+
+        mistakeReview.innerHTML = "";
+
+        if (!mistakes.length) {
+
+            mistakeReview.innerHTML =
+                "<strong>🎯 Perfect run! No mistakes.</strong>";
+
+        } else {
+
+            const title =
+                document.createElement("h3");
+
+            title.textContent =
+                "🧠 Mistake Review";
+
+            mistakeReview.appendChild(title);
+
+            mistakes.forEach(
+                mistake => {
+
+                    const item =
+                        document.createElement("div");
+
+                    item.style.marginTop =
+                        "12px";
+
+                    item.innerHTML = `
+                        <strong>${escapeHTML(mistake.question)}</strong>
+                        <br>
+                        <span>Correct: ${escapeHTML(mistake.correct)}</span>
+                    `;
+
+                    mistakeReview.appendChild(item);
+                }
+            );
+        }
+    }
+
+    const stats =
+        getStats();
+
+    if (gameScore > stats.bestScore) {
+
+        stats.bestScore =
+            gameScore;
+
+        saveStats(stats);
+    }
+
+    updateDashboard();
+}
+
+
+$("start-game-btn")
+    ?.addEventListener(
+        "click",
+        startGame
+    );
+
+$("restart-game-btn")
+    ?.addEventListener(
+        "click",
+        startGame
+    );
+
+setText(
+    "question-bank-count",
+    `${QUESTION_BANK.length}+`
+);
+
+
+/* =========================================================
+   INITIALIZATION
+========================================================= */
+
+updateDashboard();
+
+console.log(
+    `%cSENTINEL CYBER INTELLIGENCE%c\nSystem initialized.`,
+    "color:#35d9ff;font-size:20px;font-weight:bold;",
+    "color:#8ea3bd;"
 );
