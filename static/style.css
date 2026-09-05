@@ -895,3 +895,78 @@ footer {
     }
 }
 ```
+/* =====================================================
+   SOCIAL MEDIA PLATFORM LOGOS
+===================================================== */
+
+.social-platform-card {
+    text-align: center;
+    cursor: pointer;
+    transition: transform 0.25s ease, border-color 0.25s ease;
+}
+
+.social-platform-card:hover {
+    transform: translateY(-5px);
+}
+
+.platform-logo {
+    width: 58px;
+    height: 58px;
+    margin: 0 auto 18px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.platform-logo svg {
+    width: 52px;
+    height: 52px;
+    display: block;
+}
+
+/* Facebook */
+
+.facebook-logo svg {
+    fill: #1877F2;
+}
+
+.facebook-logo svg circle {
+    fill: #1877F2;
+}
+
+.facebook-logo svg path {
+    fill: #ffffff;
+}
+
+/* Instagram */
+
+.instagram-logo svg {
+    fill: none;
+    stroke: #E1306C;
+    stroke-width: 4;
+}
+
+.instagram-logo svg circle:first-of-type {
+    fill: none;
+}
+
+.instagram-logo svg circle:last-of-type {
+    fill: #E1306C;
+    stroke: none;
+}
+
+/* X */
+
+.x-logo svg {
+    fill: #ffffff;
+}
+
+.x-logo svg path {
+    fill: #ffffff;
+}
+
+/* Selected platform */
+
+.social-platform-card.selected-platform {
+    transform: translateY(-5px);
+}
