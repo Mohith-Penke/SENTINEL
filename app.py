@@ -136,14 +136,21 @@ def scan_url(url):
         "sbi", "hdfc", "icici"
     ]
 
-    if any(word in host.lower() for word in brand_words):
-        if not host.lower().endswith(
-            tuple("." + b + ".com" for b in brand_words)
-        ):
-            score += 20
-            reasons.append(
-                "The domain may be attempting brand impersonation."
-            )
+    host_lower = host.lower()
+
+    for brand in brand_words:
+        if brand in host_lower:
+            legitimate_domains = [
+                f"{brand}.com",
+                f"www.{brand}.com"
+            ]
+
+            if host_lower not in legitimate_domains:
+                score += 20
+                reasons.append(
+                    "The domain may be attempting brand impersonation."
+                )
+                break
 
     if "-" in host:
         score += 5
@@ -241,6 +248,7 @@ def scan_screenshot(filename):
     name = (filename or "").lower()
 
     score = 15
+
     reasons = [
         "Screenshot metadata analysis completed."
     ]
@@ -263,46 +271,517 @@ def scan_screenshot(filename):
 
 
 # =========================================================
-# AI COPILOT
+# SENTINEL AI - KNOWLEDGE
+# =========================================================
+
+AI_INTENTS = {
+
+    "greeting": [
+        "hi", "hello", "hey", "hai", "hii",
+        "good morning", "good afternoon", "good evening"
+    ],
+
+    "help": [
+        "help", "what can you do", "what do you do",
+        "features", "capabilities"
+    ],
+
+    "scanner": [
+        "scanner", "scan website", "website scanner",
+        "url scanner", "check website", "scan a link"
+    ],
+
+    "message_scanner": [
+        "message scanner", "scan message",
+        "check message", "sms scam", "message scam"
+    ],
+
+    "social": [
+        "social analyzer", "social media analyzer",
+        "instagram analyzer", "facebook analyzer",
+        "x analyzer", "twitter analyzer",
+        "instagram", "facebook", "twitter"
+    ],
+
+    "game": [
+        "cyber game", "game", "quiz",
+        "play game", "cyber quiz"
+    ],
+
+    "awareness": [
+        "awareness", "learn", "learning",
+        "cyber awareness", "security tips"
+    ],
+
+    "dashboard": [
+        "dashboard", "score", "stats",
+        "statistics", "mistakes", "history"
+    ],
+
+    "ai": [
+        "ai", "copilot", "cyber ai",
+        "sentinel ai", "assistant"
+    ],
+
+    "phishing": [
+        "phishing", "phish", "phishing attack"
+    ],
+
+    "otp": [
+        "otp", "verification code",
+        "one time password"
+    ],
+
+    "upi": [
+        "upi", "upi scam", "upi fraud",
+        "phonepe", "gpay", "google pay",
+        "paytm"
+    ],
+
+    "kyc": [
+        "kyc", "kyc scam", "account verification"
+    ],
+
+    "password": [
+        "password", "passcode",
+        "strong password", "password safety"
+    ],
+
+    "fake_website": [
+        "fake website", "fake site",
+        "fake link", "website fake",
+        "is this website safe",
+        "is this link safe"
+    ],
+
+    "scam": [
+        "scam", "fraud", "fraudulent",
+        "cheated", "cheating", "scammer"
+    ],
+
+    "malware": [
+        "malware", "virus", "trojan",
+        "ransomware", "spyware"
+    ],
+
+    "account_hacked": [
+        "hacked", "account hacked",
+        "instagram hacked", "facebook hacked",
+        "account stolen"
+    ],
+
+    "urgent_incident": [
+        "i clicked", "clicked the link",
+        "i paid", "money sent",
+        "shared otp", "gave otp",
+        "shared password",
+        "already paid", "already clicked"
+    ]
+}
+
+
+# =========================================================
+# AI HELPERS
+# =========================================================
+
+def clean_ai_text(text):
+    text = re.sub(r"\s+", " ", text).strip()
+    return text
+
+
+def detect_intent(text):
+    text_lower = text.lower()
+
+    # Most dangerous / specific intents first
+    priority = [
+        "urgent_incident",
+        "fake_website",
+        "account_hacked",
+        "upi",
+        "otp",
+        "kyc",
+        "phishing",
+        "malware",
+        "password",
+        "message_scanner",
+        "social",
+        "scanner",
+        "game",
+        "awareness",
+        "dashboard",
+        "ai",
+        "scam",
+        "help",
+        "greeting"
+    ]
+
+    for intent in priority:
+        keywords = AI_INTENTS[intent]
+
+        for keyword in keywords:
+            if keyword in text_lower:
+                return intent
+
+    return "general"
+
+
+def is_question_about_navigation(text):
+    nav_words = [
+        "where", "where is", "how to open",
+        "how do i use", "how can i use",
+        "ekkuv", "ekkada", "ela use",
+        "ela open", "open cheyali"
+    ]
+
+    return any(word in text.lower() for word in nav_words)
+
+
+# =========================================================
+# SHARP SENTINEL AI
 # =========================================================
 
 def local_ai(message):
-    text = message.lower()
+    text = clean_ai_text(message)
+    lower = text.lower()
 
-    if "phishing" in text:
+    intent = detect_intent(text)
+
+    # -----------------------------------------------------
+    # EMERGENCY INCIDENT
+    # -----------------------------------------------------
+
+    if intent == "urgent_incident":
+
+        if "otp" in lower:
+            return (
+                "🚨 HIGH RISK — OTP was shared.\n\n"
+                "1. Contact your bank/service immediately.\n"
+                "2. Secure the affected account.\n"
+                "3. Check for unauthorized transactions.\n"
+                "4. Report the incident immediately if money was lost.\n\n"
+                "Never share another OTP."
+            )
+
+        if "paid" in lower or "money" in lower:
+            return (
+                "🚨 ACT NOW\n\n"
+                "If money was sent to a scammer:\n"
+                "1. Contact your bank/UPI provider immediately.\n"
+                "2. Report the transaction.\n"
+                "3. Preserve screenshots and transaction details.\n"
+                "4. In India, report financial cyber fraud through 1930.\n\n"
+                "Do not send any more money."
+            )
+
+        if "password" in lower:
+            return (
+                "🚨 Secure the account immediately.\n\n"
+                "Change the password from the official website/app, "
+                "enable MFA, and sign out unknown sessions."
+            )
+
+        if "click" in lower:
+            return (
+                "⚠️ If you clicked a suspicious link:\n\n"
+                "Do not enter any more information. "
+                "Close the page, run a security check, "
+                "and change credentials if you entered them."
+            )
+
         return (
-            "Phishing is a scam where attackers impersonate a trusted "
-            "person or organization to steal credentials, OTPs, money or data."
+            "🚨 Treat this as a possible security incident.\n\n"
+            "Stop interacting with the source, preserve evidence, "
+            "secure affected accounts, and report any financial loss immediately."
         )
 
-    if "otp" in text:
+    # -----------------------------------------------------
+    # GREETING
+    # -----------------------------------------------------
+
+    if intent == "greeting":
         return (
-            "Never share an OTP with anyone. Banks and legitimate services "
-            "normally do not need you to tell another person your OTP."
+            "Hey! 👋 I'm SENTINEL Cyber AI.\n\n"
+            "I can guide you through the entire SENTINEL platform, "
+            "check cybersecurity situations, explain scan results, "
+            "and help with phishing, scams, OTP, UPI, passwords and more.\n\n"
+            "Ask me what you want to do."
         )
 
-    if "password" in text:
+    # -----------------------------------------------------
+    # HELP / CAPABILITIES
+    # -----------------------------------------------------
+
+    if intent == "help":
         return (
-            "Never share your password. Use unique passwords and enable "
-            "multi-factor authentication whenever possible."
+            "🛡️ SENTINEL AI can help with:\n\n"
+            "• Website & URL scanning\n"
+            "• Scam message detection\n"
+            "• Instagram / Facebook / X analysis\n"
+            "• Cyber Game\n"
+            "• Cyber Awareness\n"
+            "• Dashboard & scan results\n"
+            "• Phishing, OTP, UPI and KYC scams\n"
+            "• Password & account security\n\n"
+            "You can also ask me how to use any SENTINEL feature."
         )
 
-    if "link" in text or "url" in text or "website" in text:
+    # -----------------------------------------------------
+    # WEBSITE SCANNER
+    # -----------------------------------------------------
+
+    if intent == "scanner":
         return (
-            "Check the exact domain name, HTTPS status, spelling, "
-            "subdomains and suspicious words before trusting a website."
+            "🔎 Website Scanner\n\n"
+            "Use it to check a suspicious URL for common warning signs.\n\n"
+            "SENTINEL checks things like HTTPS, IP-based domains, "
+            "suspicious keywords, unusual URL structure, "
+            "punycode and possible brand impersonation.\n\n"
+            "Paste the URL into the Website Scanner and review the risk level."
         )
 
-    if "scam" in text or "fraud" in text:
+    # -----------------------------------------------------
+    # MESSAGE SCANNER
+    # -----------------------------------------------------
+
+    if intent == "message_scanner":
         return (
-            "If you suspect a scam, stop interacting with the sender, "
-            "avoid payments, preserve evidence and report the incident."
+            "💬 Message Scanner\n\n"
+            "Paste the suspicious SMS, WhatsApp message, email text "
+            "or other message into the Message Scanner.\n\n"
+            "SENTINEL looks for urgency, OTP requests, KYC language, "
+            "payment requests, prize scams, threats and suspicious links."
         )
+
+    # -----------------------------------------------------
+    # SOCIAL MEDIA
+    # -----------------------------------------------------
+
+    if intent == "social":
+        if "instagram" in lower:
+            return (
+                "📸 Instagram Analyzer\n\n"
+                "Open **Social → Instagram**, select Instagram, "
+                "upload the relevant screenshot and run the analyzer.\n\n"
+                "Look for suspicious profiles, investment promises, "
+                "off-platform contact requests and other scam indicators."
+            )
+
+        if "facebook" in lower:
+            return (
+                "📘 Facebook Analyzer\n\n"
+                "Open **Social → Facebook**, select Facebook, "
+                "upload the screenshot and analyze it for suspicious indicators."
+            )
+
+        if "twitter" in lower or " x " in f" {lower} ":
+            return (
+                "𝕏 X Analyzer\n\n"
+                "Open **Social → X**, select X, "
+                "upload the screenshot and run the analyzer."
+            )
+
+        return (
+            "📱 Social Media Analyzer\n\n"
+            "SENTINEL supports separate analysis flows for:\n"
+            "• Instagram\n"
+            "• Facebook\n"
+            "• X\n\n"
+            "Select the platform, upload the screenshot, and analyze it."
+        )
+
+    # -----------------------------------------------------
+    # CYBER GAME
+    # -----------------------------------------------------
+
+    if intent == "game":
+        return (
+            "🎮 Cyber Game\n\n"
+            "Go to **Cyber Game** from the navigation menu.\n\n"
+            "Answer the cybersecurity questions, build your score, "
+            "and review your mistakes to improve your awareness."
+        )
+
+    # -----------------------------------------------------
+    # AWARENESS
+    # -----------------------------------------------------
+
+    if intent == "awareness":
+        return (
+            "📚 Cyber Awareness\n\n"
+            "Use the Awareness section to learn practical cybersecurity "
+            "concepts such as phishing, passwords, scams, privacy and "
+            "safe online behavior.\n\n"
+            "If you give me a specific topic, I'll explain only what you need."
+        )
+
+    # -----------------------------------------------------
+    # DASHBOARD
+    # -----------------------------------------------------
+
+    if intent == "dashboard":
+        return (
+            "📊 Dashboard\n\n"
+            "The Dashboard is your SENTINEL activity overview.\n\n"
+            "You can use it to understand your scan activity, "
+            "cyber-game performance and mistakes."
+        )
+
+    # -----------------------------------------------------
+    # AI ITSELF
+    # -----------------------------------------------------
+
+    if intent == "ai":
+        return (
+            "🤖 I'm SENTINEL Cyber AI.\n\n"
+            "My job is to guide you through the SENTINEL platform "
+            "and give focused cybersecurity help.\n\n"
+            "Try asking:\n"
+            "• Is this website safe?\n"
+            "• How do I scan a message?\n"
+            "• Where is Instagram Analyzer?\n"
+            "• What should I do after an OTP scam?"
+        )
+
+    # -----------------------------------------------------
+    # PHISHING
+    # -----------------------------------------------------
+
+    if intent == "phishing":
+        return (
+            "🎣 Phishing is a social-engineering attack where someone "
+            "pretends to be a trusted person or organization.\n\n"
+            "Common targets: passwords, OTPs, bank details and payments.\n\n"
+            "Best defense: verify the sender and domain independently. "
+            "Never trust urgency alone."
+        )
+
+    # -----------------------------------------------------
+    # OTP
+    # -----------------------------------------------------
+
+    if intent == "otp":
+        return (
+            "🔐 Never share an OTP with another person.\n\n"
+            "An OTP can authorize sensitive actions such as login, "
+            "payments or account changes.\n\n"
+            "If someone asks you to tell them your OTP, treat it as a major warning sign."
+        )
+
+    # -----------------------------------------------------
+    # UPI
+    # -----------------------------------------------------
+
+    if intent == "upi":
+        return (
+            "💳 UPI Safety\n\n"
+            "• Never share UPI PIN or OTP.\n"
+            "• You do NOT need to enter your UPI PIN to receive money.\n"
+            "• Reject unexpected collect/payment requests.\n"
+            "• Verify the recipient before approving a payment.\n\n"
+            "If money is lost to fraud in India, report it immediately through 1930."
+        )
+
+    # -----------------------------------------------------
+    # KYC
+    # -----------------------------------------------------
+
+    if intent == "kyc":
+        return (
+            "⚠️ KYC scams often create urgency by claiming your bank/SIM/account "
+            "will be blocked.\n\n"
+            "Don't use the link they send. Open the official bank/service app "
+            "or website yourself and verify the request."
+        )
+
+    # -----------------------------------------------------
+    # PASSWORD
+    # -----------------------------------------------------
+
+    if intent == "password":
+        return (
+            "🔑 Password rule:\n\n"
+            "Use a unique strong password for every important account "
+            "and enable MFA wherever available.\n\n"
+            "Never send your password to another person—even if they claim "
+            "to be support staff."
+        )
+
+    # -----------------------------------------------------
+    # FAKE WEBSITE
+    # -----------------------------------------------------
+
+    if intent == "fake_website":
+        return (
+            "🕵️ Don't judge a website only by its design or padlock.\n\n"
+            "Check the exact domain, spelling, HTTPS, URL structure "
+            "and whether the domain actually belongs to the claimed organization.\n\n"
+            "For a suspicious URL, use SENTINEL's Website Scanner."
+        )
+
+    # -----------------------------------------------------
+    # MALWARE
+    # -----------------------------------------------------
+
+    if intent == "malware":
+        return (
+            "🦠 Malware is malicious software designed to damage systems, "
+            "steal information, spy on users or encrypt files.\n\n"
+            "Avoid unknown downloads, cracked software and suspicious attachments. "
+            "Keep your OS and security software updated."
+        )
+
+    # -----------------------------------------------------
+    # ACCOUNT HACKED
+    # -----------------------------------------------------
+
+    if intent == "account_hacked":
+        return (
+            "🚨 If you think an account was hacked:\n\n"
+            "1. Change the password using the official service.\n"
+            "2. Enable MFA.\n"
+            "3. Sign out unknown sessions/devices.\n"
+            "4. Check recovery email/phone settings.\n"
+            "5. Remove suspicious connected apps."
+        )
+
+    # -----------------------------------------------------
+    # SCAM / FRAUD
+    # -----------------------------------------------------
+
+    if intent == "scam":
+        return (
+            "⚠️ Possible scam?\n\n"
+            "Stop the interaction first.\n"
+            "Don't click links, send money, share OTPs or provide passwords.\n\n"
+            "If you have the message or URL, use SENTINEL's scanners to investigate it."
+        )
+
+    # -----------------------------------------------------
+    # GENERAL CYBERSECURITY
+    # -----------------------------------------------------
+
+    cyber_words = [
+        "cyber", "security", "safe", "hack",
+        "online", "internet", "privacy",
+        "data", "email", "bank"
+    ]
+
+    if any(word in lower for word in cyber_words):
+        return (
+            "🛡️ I can help with that from a cybersecurity perspective.\n\n"
+            "Tell me the exact situation—website, message, account, payment, "
+            "social media or security question—and I'll give you the shortest useful answer."
+        )
+
+    # -----------------------------------------------------
+    # UNRELATED / UNKNOWN
+    # -----------------------------------------------------
 
     return (
-        "I am SENTINEL Cyber AI. I can help you understand phishing, "
-        "fake websites, scam messages, suspicious links, OTP safety "
-        "and cybersecurity awareness."
+        "I'm focused on SENTINEL and cybersecurity.\n\n"
+        "Ask me about the Website Scanner, Message Scanner, "
+        "Social Analyzer, Cyber Game, Awareness, Dashboard, "
+        "phishing, scams, OTP, UPI, passwords or account security."
     )
 
 
@@ -356,13 +835,23 @@ def scan_profile():
             score += 15
             reasons.append("Very little profile information was provided.")
 
-        if any(x in text.lower() for x in ["crypto", "investment", "double money"]):
+        if any(
+            x in text.lower()
+            for x in ["crypto", "investment", "double money"]
+        ):
             score += 30
-            reasons.append("Potential investment scam language detected.")
+            reasons.append(
+                "Potential investment scam language detected."
+            )
 
-        if any(x in text.lower() for x in ["whatsapp", "telegram", "dm me"]):
+        if any(
+            x in text.lower()
+            for x in ["whatsapp", "telegram", "dm me"]
+        ):
             score += 10
-            reasons.append("The profile attempts to move communication off-platform.")
+            reasons.append(
+                "The profile attempts to move communication off-platform."
+            )
 
     return jsonify(make_result(score, reasons))
 
@@ -379,18 +868,27 @@ def analyze_screenshot():
     return jsonify(scan_screenshot(file.filename))
 
 
+# =========================================================
+# AI CHAT
+# =========================================================
+
 @app.route("/chat", methods=["POST"])
 def chat():
     data = request.get_json(silent=True) or {}
-    message = str(data.get("message", "")).strip()
+
+    message = str(
+        data.get("message", "")
+    ).strip()
 
     if not message:
         return jsonify({
-            "response": "Please enter a question."
+            "response": "Tell me what you want help with."
         })
 
+    response = local_ai(message)
+
     return jsonify({
-        "response": local_ai(message)
+        "response": response
     })
 
 
