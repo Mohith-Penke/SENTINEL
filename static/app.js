@@ -1,5 +1,5 @@
 /* =========================================================
-   SENTINEL — CYBER INTELLIGENCE FRONTEND
+   SENTINEL — COMPLETE APPLICATION JAVASCRIPT
 ========================================================= */
 
 "use strict";
@@ -10,51 +10,48 @@
 
 const $ = (id) => document.getElementById(id);
 
-const $$ = (selector) =>
-    Array.from(document.querySelectorAll(selector));
-
-const escapeHTML = (value) => {
-    const div = document.createElement("div");
-    div.textContent = String(value ?? "");
-    return div.innerHTML;
-};
-
 const sleep = (ms) =>
     new Promise(resolve => setTimeout(resolve, ms));
 
-function show(element) {
-    if (element) element.classList.remove("hidden");
+function show(el) {
+    if (el) el.classList.remove("hidden");
 }
 
-function hide(element) {
-    if (element) element.classList.add("hidden");
+function hide(el) {
+    if (el) el.classList.add("hidden");
 }
 
 function setText(id, value) {
-    const element = $(id);
-    if (element) element.textContent = value ?? "";
+    const el = $(id);
+    if (el) el.textContent = value ?? "";
+}
+
+function escapeHTML(value) {
+    return String(value ?? "")
+        .replace(/&/g, "&amp;")
+        .replace(/</g, "&lt;")
+        .replace(/>/g, "&gt;")
+        .replace(/"/g, "&quot;")
+        .replace(/'/g, "&#039;");
 }
 
 function showToast(message, icon = "✓") {
+    const toast = $("toast");
+    if (!toast) return;
 
     setText("toast-message", message);
     setText("toast-icon", icon);
 
-    const toast = $("toast");
-
-    if (!toast) return;
-
     toast.classList.add("show");
 
-    clearTimeout(window.sentinelToastTimer);
+    clearTimeout(window.__toastTimer);
 
-    window.sentinelToastTimer = setTimeout(() => {
+    window.__toastTimer = setTimeout(() => {
         toast.classList.remove("show");
-    }, 2800);
+    }, 2500);
 }
 
 async function postJSON(url, data) {
-
     const response = await fetch(url, {
         method: "POST",
         headers: {
@@ -68,56 +65,46 @@ async function postJSON(url, data) {
     try {
         result = await response.json();
     } catch {
-        throw new Error("Server returned an invalid response.");
+        throw new Error("Invalid server response.");
     }
 
     if (!response.ok) {
-        throw new Error(
-            result.error ||
-            result.message ||
-            "Request failed."
-        );
+        throw new Error(result.error || "Request failed.");
     }
 
     return result;
 }
 
-function setButtonLoading(button, loading, loadingText = "PROCESSING...") {
-
+function setButtonLoading(button, loading, text) {
     if (!button) return;
 
     if (loading) {
-
-        button.dataset.originalText = button.innerHTML;
+        button.dataset.originalText = button.textContent;
         button.disabled = true;
-        button.innerHTML = `⏳ ${loadingText}`;
-
+        button.textContent = text || "SCANNING...";
     } else {
-
         button.disabled = false;
-
-        if (button.dataset.originalText) {
-            button.innerHTML = button.dataset.originalText;
-        }
+        button.textContent =
+            button.dataset.originalText || text || "SCAN";
     }
 }
+
 
 /* =========================================================
    NAVIGATION
 ========================================================= */
 
-function navigateTo(target) {
-
-    const pages = $$(".page");
+function openPage(pageId) {
+    const pages = document.querySelectorAll(".page");
 
     pages.forEach(page => {
         page.classList.remove("active");
     });
 
-    const page = $(target);
+    const target = $(pageId);
 
-    if (page) {
-        page.classList.add("active");
+    if (target) {
+        target.classList.add("active");
         window.scrollTo({
             top: 0,
             behavior: "smooth"
@@ -125,173 +112,77 @@ function navigateTo(target) {
     }
 }
 
-$$("[data-target]").forEach(button => {
+document.querySelectorAll("[data-target]").forEach(button => {
 
     button.addEventListener("click", () => {
 
         const target = button.dataset.target;
 
         if (target) {
-            navigateTo(target);
+            openPage(target);
         }
+
     });
+
 });
 
 
 /* =========================================================
-   RISK CLASSIFICATION
+   RISK RESULT
 ========================================================= */
 
-function getRiskInfo(score) {
+function renderRiskResult(prefix, result) {
 
-    score = Number(score) || 0;
+    if (!result) return;
 
-    if (score <= 29) {
-        return {
-            level: "LOW RISK",
-            className: "low",
-            emoji: "🟢"
-        };
+    const score = Number(result.score || 0);
+    const level = result.level || "LOW";
+
+    setText(`${prefix}-score`, score);
+    setText(`${prefix}-level`, level);
+    setText(`${prefix}-summary`, result.summary || "");
+
+    const reasons = $( `${prefix}-reasons` );
+    const actions = $( `${prefix}-actions` );
+
+    if (reasons) {
+        reasons.innerHTML = "";
+
+        (result.reasons || []).forEach(reason => {
+
+            const li = document.createElement("li");
+            li.textContent = reason;
+            reasons.appendChild(li);
+
+        });
     }
 
-    if (score <= 49) {
-        return {
-            level: "MEDIUM RISK",
-            className: "medium",
-            emoji: "🟡"
-        };
+    if (actions) {
+        actions.innerHTML = "";
+
+        (result.actions || []).forEach(action => {
+
+            const li = document.createElement("li");
+            li.textContent = action;
+            actions.appendChild(li);
+
+        });
     }
 
-    if (score <= 69) {
-        return {
-            level: "MEDIUM → HIGH RISK",
-            className: "medium-high",
-            emoji: "🟠"
-        };
+    const meter = $(`${prefix}-meter-fill`);
+
+    if (meter) {
+        meter.style.width = `${score}%`;
     }
 
-    if (score <= 89) {
-        return {
-            level: "HIGH RISK",
-            className: "high",
-            emoji: "🔴"
-        };
+    show($(`${prefix}-result`));
+
+    updateStats(prefix, result);
+
+    if (level === "HIGH" || level === "CRITICAL") {
+        triggerDangerMode();
     }
 
-    return {
-        level: "CRITICAL RISK",
-        className: "critical",
-        emoji: "🚨"
-    };
-}
-
-
-/* =========================================================
-   DANGER SOUND
-========================================================= */
-
-function playDangerSound() {
-
-    try {
-
-        const AudioContext =
-            window.AudioContext ||
-            window.webkitAudioContext;
-
-        if (!AudioContext) return;
-
-        const audioContext = new AudioContext();
-
-        const now = audioContext.currentTime;
-
-        const oscillator1 =
-            audioContext.createOscillator();
-
-        const oscillator2 =
-            audioContext.createOscillator();
-
-        const gain =
-            audioContext.createGain();
-
-        oscillator1.type = "sawtooth";
-        oscillator2.type = "square";
-
-        oscillator1.frequency.setValueAtTime(
-            880,
-            now
-        );
-
-        oscillator1.frequency.exponentialRampToValueAtTime(
-            440,
-            now + 0.25
-        );
-
-        oscillator2.frequency.setValueAtTime(
-            660,
-            now
-        );
-
-        oscillator2.frequency.exponentialRampToValueAtTime(
-            330,
-            now + 0.25
-        );
-
-        gain.gain.setValueAtTime(
-            0.0001,
-            now
-        );
-
-        gain.gain.exponentialRampToValueAtTime(
-            0.18,
-            now + 0.02
-        );
-
-        gain.gain.exponentialRampToValueAtTime(
-            0.0001,
-            now + 0.55
-        );
-
-        oscillator1.connect(gain);
-        oscillator2.connect(gain);
-
-        gain.connect(audioContext.destination);
-
-        oscillator1.start(now);
-        oscillator2.start(now);
-
-        oscillator1.stop(now + 0.55);
-        oscillator2.stop(now + 0.55);
-
-        setTimeout(() => {
-            audioContext.close().catch(() => {});
-        }, 800);
-
-    } catch (error) {
-
-        console.warn(
-            "Danger sound could not play:",
-            error
-        );
-    }
-}
-
-
-/* =========================================================
-   DANGER VISUAL
-========================================================= */
-
-function triggerDangerMode() {
-
-    document.body.classList.add("danger-mode");
-
-    showToast(
-        "🚨 HIGH-RISK THREAT DETECTED",
-        "🚨"
-    );
-
-    setTimeout(() => {
-        document.body.classList.remove("danger-mode");
-    }, 3500);
 }
 
 
@@ -299,264 +190,104 @@ function triggerDangerMode() {
    DASHBOARD STORAGE
 ========================================================= */
 
-const defaultStats = {
+const DEFAULT_STATS = {
     websiteScans: 0,
     highRisk: 0,
     critical: 0,
-    messages: 0,
-    social: 0,
+    messageScans: 0,
+    socialScans: 0,
     bestScore: 0,
-    total: 0
+    total: 0,
+    level: "BEGINNER"
 };
 
 function getStats() {
 
     try {
+        const saved = localStorage.getItem("sentinelStats");
+
+        if (!saved) {
+            return { ...DEFAULT_STATS };
+        }
 
         return {
-            ...defaultStats,
-            ...JSON.parse(
-                localStorage.getItem("sentinelStats") || "{}"
-            )
+            ...DEFAULT_STATS,
+            ...JSON.parse(saved)
         };
 
     } catch {
-
-        return {
-            ...defaultStats
-        };
+        return { ...DEFAULT_STATS };
     }
 }
 
 function saveStats(stats) {
-
     localStorage.setItem(
         "sentinelStats",
         JSON.stringify(stats)
     );
 }
 
-function updateDashboard() {
-
-    const stats = getStats();
-
-    setText(
-        "dash-website-scans",
-        stats.websiteScans
-    );
-
-    setText(
-        "dash-high-risk",
-        stats.highRisk
-    );
-
-    setText(
-        "dash-critical",
-        stats.critical
-    );
-
-    setText(
-        "dash-messages",
-        stats.messages
-    );
-
-    setText(
-        "dash-social",
-        stats.social
-    );
-
-    setText(
-        "dash-best-score",
-        stats.bestScore
-    );
-
-    setText(
-        "dash-total",
-        stats.total
-    );
-
-    let level = "BEGINNER";
-
-    if (stats.total >= 25) {
-        level = "DEFENDER";
-    }
-
-    if (stats.total >= 50) {
-        level = "CYBER SCOUT";
-    }
-
-    if (stats.total >= 100) {
-        level = "CYBER GUARDIAN";
-    }
-
-    setText(
-        "dash-level",
-        level
-    );
-}
-
-function recordScan(type, score) {
+function updateStats(prefix, result) {
 
     const stats = getStats();
 
     stats.total++;
 
-    if (type === "website") {
-        stats.websiteScans++;
-    }
+    const level = result.level;
 
-    if (type === "message") {
-        stats.messages++;
-    }
-
-    if (type === "social") {
-        stats.social++;
-    }
-
-    if (score >= 70) {
+    if (level === "HIGH") {
         stats.highRisk++;
     }
 
-    if (score >= 90) {
+    if (level === "CRITICAL") {
         stats.critical++;
+    }
+
+    if (prefix === "website") {
+        stats.websiteScans++;
+    }
+
+    if (prefix === "message") {
+        stats.messageScans++;
+    }
+
+    if (prefix === "screenshot") {
+        stats.socialScans++;
     }
 
     saveStats(stats);
 
-    updateDashboard();
+    renderDashboard();
+}
+
+function renderDashboard() {
+
+    const stats = getStats();
+
+    setText("dash-website-scans", stats.websiteScans);
+    setText("dash-high-risk", stats.highRisk);
+    setText("dash-critical", stats.critical);
+    setText("dash-messages", stats.messageScans);
+    setText("dash-social", stats.socialScans);
+    setText("dash-best-score", stats.bestScore);
+    setText("dash-total", stats.total);
+    setText("dash-level", stats.level);
 }
 
 
 /* =========================================================
-   RISK RESULT RENDERER
+   DANGER MODE
 ========================================================= */
 
-function renderRiskResult(prefix, data) {
+function triggerDangerMode() {
 
-    const score = Math.max(
-        0,
-        Math.min(
-            100,
-            Number(data.score) || 0
-        )
-    );
+    document.body.classList.add("danger-mode");
 
-    const info = getRiskInfo(score);
+    clearTimeout(window.__dangerTimer);
 
-    setText(
-        `${prefix}-score`,
-        score
-    );
-
-    setText(
-        `${prefix}-level`,
-        info.level
-    );
-
-    setText(
-        `${prefix}-summary`,
-        data.summary ||
-        `${info.emoji} SENTINEL classified this as ${info.level}.`
-    );
-
-    const meter =
-        $(`${prefix}-meter-fill`);
-
-    if (meter) {
-        meter.style.width = `${score}%`;
-    }
-
-    const reasons =
-        $(`${prefix}-reasons`);
-
-    if (reasons) {
-
-        reasons.innerHTML = "";
-
-        const list =
-            Array.isArray(data.reasons)
-                ? data.reasons
-                : [];
-
-        if (!list.length) {
-
-            const li =
-                document.createElement("li");
-
-            li.textContent =
-                "No major suspicious indicators were detected.";
-
-            reasons.appendChild(li);
-
-        } else {
-
-            list.forEach(reason => {
-
-                const li =
-                    document.createElement("li");
-
-                li.textContent = reason;
-
-                reasons.appendChild(li);
-            });
-        }
-    }
-
-    const actions =
-        $(`${prefix}-actions`);
-
-    if (actions) {
-
-        actions.innerHTML = "";
-
-        const list =
-            Array.isArray(data.actions)
-                ? data.actions
-                : [];
-
-        if (!list.length) {
-
-            const li =
-                document.createElement("li");
-
-            li.textContent =
-                score >= 70
-                    ? "Do not enter passwords, OTPs or payment information."
-                    : "Verify the information before taking action.";
-
-            actions.appendChild(li);
-
-        } else {
-
-            list.forEach(action => {
-
-                const li =
-                    document.createElement("li");
-
-                li.textContent = action;
-
-                actions.appendChild(li);
-            });
-        }
-    }
-
-    const result =
-        $(`${prefix}-result`);
-
-    show(result);
-
-    if (
-        prefix === "website" &&
-        score >= 70 &&
-        (
-            info.level.includes("HIGH") ||
-            info.level.includes("CRITICAL")
-        )
-    ) {
-
-        playDangerSound();
-        triggerDangerMode();
-    }
+    window.__dangerTimer = setTimeout(() => {
+        document.body.classList.remove("danger-mode");
+    }, 1800);
 }
 
 
@@ -568,136 +299,90 @@ async function scanWebsite() {
 
     const input = $("website-url");
     const button = $("scan-website-btn");
+    const progress = $("website-progress");
 
     if (!input || !button) return;
 
-    const url =
-        input.value.trim();
+    const url = input.value.trim();
 
     if (!url) {
-
-        showToast(
-            "Enter a website URL first.",
-            "⚠️"
-        );
-
+        showToast("Enter a website URL first.", "!");
         input.focus();
-
         return;
     }
 
-    const progress =
-        $("website-progress");
-
-    const result =
-        $("website-result");
-
+    hide($("website-result"));
     show(progress);
-    hide(result);
 
-    setButtonLoading(
-        button,
-        true,
-        "SCANNING..."
-    );
+    setButtonLoading(button, true, "ANALYZING...");
 
-    const fill =
-        $("website-progress-fill");
-
-    const stages = [
-        [15, "Connecting to target..."],
-        [30, "Inspecting URL structure..."],
-        [48, "Checking suspicious patterns..."],
-        [66, "Analyzing domain indicators..."],
-        [82, "Calculating threat score..."],
-        [95, "Generating security recommendation..."]
-    ];
+    const fill = $("website-progress-fill");
+    const percent = $("website-progress-percent");
+    const stages = $("website-stages");
 
     try {
 
-        for (const [percent, message] of stages) {
+        const steps = [
+            ["Checking URL structure...", 25],
+            ["Checking suspicious indicators...", 50],
+            ["Analyzing domain patterns...", 75],
+            ["Generating risk report...", 100]
+        ];
 
-            setText(
-                "website-stages",
-                message
-            );
+        for (const [stage, value] of steps) {
 
-            setText(
-                "website-progress-percent",
-                `${percent}%`
-            );
+            setText("website-stages", stage);
 
             if (fill) {
-                fill.style.width =
-                    `${percent}%`;
+                fill.style.width = `${value}%`;
+            }
+
+            if (percent) {
+                percent.textContent = `${value}%`;
             }
 
             await sleep(180);
         }
 
-        const data =
-            await postJSON(
-                "/scan",
-                { url }
-            );
+        const result = await postJSON("/scan", {
+            url: url
+        });
 
-        if (fill) {
-            fill.style.width = "100%";
-        }
-
-        setText(
-            "website-progress-percent",
-            "100%"
-        );
-
-        renderRiskResult(
-            "website",
-            data
-        );
-
-        recordScan(
-            "website",
-            Number(data.score) || 0
-        );
+        renderRiskResult("website", result);
 
         showToast(
-            "Website analysis complete.",
-            "✓"
+            `Website analysis complete: ${result.level}`,
+            result.level === "LOW" ? "✓" : "!"
         );
 
     } catch (error) {
 
-        showToast(
-            error.message ||
-            "Website scan failed.",
-            "❌"
-        );
+        showToast(error.message || "Website scan failed.", "!");
 
     } finally {
 
-        setButtonLoading(
-            button,
-            false
-        );
+        setButtonLoading(button, false);
+        hide(progress);
+
     }
 }
 
-$("scan-website-btn")
-    ?.addEventListener(
-        "click",
-        scanWebsite
-    );
+$("scan-website-btn")?.addEventListener(
+    "click",
+    scanWebsite
+);
 
-$("website-url")
-    ?.addEventListener(
-        "keydown",
-        event => {
+$("website-url")?.addEventListener(
+    "keydown",
+    event => {
 
-            if (event.key === "Enter") {
-                scanWebsite();
-            }
+        if (event.key === "Enter") {
+            event.preventDefault();
+            scanWebsite();
         }
-    );
+
+    }
+);
 
 
 /* =========================================================
@@ -706,495 +391,329 @@ $("website-url")
 
 async function scanMessage() {
 
-    const input =
-        $("message-text");
-
-    const button =
-        $("scan-message-btn");
+    const input = $("message-text");
+    const button = $("scan-message-btn");
+    const progress = $("message-progress");
 
     if (!input || !button) return;
 
-    const message =
-        input.value.trim();
+    const message = input.value.trim();
 
     if (!message) {
-
-        showToast(
-            "Paste a suspicious message first.",
-            "⚠️"
-        );
-
+        showToast("Paste a message first.", "!");
         input.focus();
-
         return;
     }
 
-    const progress =
-        $("message-progress");
-
-    const result =
-        $("message-result");
-
+    hide($("message-result"));
     show(progress);
-    hide(result);
 
-    setButtonLoading(
-        button,
-        true,
-        "ANALYZING..."
-    );
+    setButtonLoading(button, true, "ANALYZING...");
 
-    const fill =
-        $("message-progress-fill");
-
-    const stages = [
-        [20, "Reading message..."],
-        [40, "Detecting scam language..."],
-        [60, "Checking payment indicators..."],
-        [78, "Checking links and urgency..."],
-        [94, "Calculating risk..."]
-    ];
+    const fill = $("message-progress-fill");
 
     try {
 
-        for (const [percent, stage] of stages) {
+        const steps = [
+            ["Reading message patterns...", 25],
+            ["Checking scam indicators...", 50],
+            ["Checking urgency and payment signals...", 75],
+            ["Generating risk report...", 100]
+        ];
 
-            setText(
-                "message-stages",
-                stage
-            );
+        for (const [stage, value] of steps) {
+
+            setText("message-stages", stage);
+
+            if (fill) {
+                fill.style.width = `${value}%`;
+            }
 
             setText(
                 "message-progress-percent",
-                `${percent}%`
+                `${value}%`
             );
-
-            if (fill) {
-                fill.style.width =
-                    `${percent}%`;
-            }
 
             await sleep(180);
         }
 
-        const data =
-            await postJSON(
-                "/scan-message",
-                { message }
-            );
-
-        if (fill) {
-            fill.style.width = "100%";
-        }
-
-        renderRiskResult(
-            "message",
-            data
+        const result = await postJSON(
+            "/scan-message",
+            { message: message }
         );
 
-        recordScan(
-            "message",
-            Number(data.score) || 0
-        );
+        renderRiskResult("message", result);
 
         showToast(
-            "Message analysis complete.",
-            "✓"
+            `Message analysis complete: ${result.level}`,
+            result.level === "LOW" ? "✓" : "!"
         );
 
     } catch (error) {
 
         showToast(
-            error.message ||
-            "Message analysis failed.",
-            "❌"
+            error.message || "Message scan failed.",
+            "!"
         );
 
     } finally {
 
-        setButtonLoading(
-            button,
-            false
-        );
+        setButtonLoading(button, false);
+        hide(progress);
+
     }
 }
 
-$("scan-message-btn")
-    ?.addEventListener(
-        "click",
-        scanMessage
-    );
+$("scan-message-btn")?.addEventListener(
+    "click",
+    scanMessage
+);
 
 
 /* =========================================================
    MESSAGE DEMO
 ========================================================= */
 
-$("message-demo-btn")
-    ?.addEventListener(
-        "click",
-        () => {
+$("message-demo-btn")?.addEventListener(
+    "click",
+    () => {
 
-            const message =
-                "URGENT! Your bank KYC has expired. Click https://bit.ly/verify-now immediately to update your account or it will be blocked. Share the OTP with our verification agent.";
+        const demo =
+            "URGENT! Your bank account will be blocked today. " +
+            "Verify your KYC immediately using this link " +
+            "https://bit.ly/verify-account and share your OTP.";
 
-            setText(
-                "message-text",
-                message
-            );
+        setText("message-text", demo);
 
-            const textarea =
-                $("message-text");
-
-            if (textarea) {
-                textarea.value = message;
-            }
-
-            showToast(
-                "Demo scam message loaded.",
-                "🧪"
-            );
-        }
-    );
+        showToast(
+            "Demo scam message loaded.",
+            "!"
+        );
+    }
+);
 
 
 /* =========================================================
    CLEAR MESSAGE
 ========================================================= */
 
-$("clear-message-btn")
-    ?.addEventListener(
-        "click",
-        () => {
+$("clear-message-btn")?.addEventListener(
+    "click",
+    () => {
 
-            const input =
-                $("message-text");
+        const input = $("message-text");
 
-            if (input) {
-                input.value = "";
-            }
+        if (input) {
+            input.value = "";
+        }
 
-            hide(
-                $("message-result")
+        hide($("message-result"));
+
+        showToast(
+            "Message cleared.",
+            "✓"
+        );
+    }
+);
+
+
+/* =========================================================
+   SOCIAL SCREENSHOT
+========================================================= */
+
+const screenshotInput = $("screenshot-input");
+
+screenshotInput?.addEventListener(
+    "change",
+    () => {
+
+        const file = screenshotInput.files?.[0];
+
+        if (!file) {
+            setText(
+                "selected-file",
+                "No file selected"
             );
+            return;
+        }
 
+        setText(
+            "selected-file",
+            file.name
+        );
+    }
+);
+
+
+$("screenshot-form")?.addEventListener(
+    "submit",
+    async event => {
+
+        event.preventDefault();
+
+        const file = screenshotInput?.files?.[0];
+
+        if (!file) {
             showToast(
-                "Message cleared.",
-                "✓"
+                "Select a screenshot first.",
+                "!"
             );
+            return;
         }
-    );
 
-
-/* =========================================================
-   SCREENSHOT FILE
-========================================================= */
-
-$("screenshot-input")
-    ?.addEventListener(
-        "change",
-        event => {
-
-            const file =
-                event.target.files?.[0];
-
-            const display =
-                $("selected-file");
-
-            if (!file) {
-
-                if (display) {
-                    display.textContent = "";
-                }
-
-                return;
-            }
-
-            if (file.size > 5 * 1024 * 1024) {
-
-                showToast(
-                    "Screenshot must be smaller than 5 MB.",
-                    "⚠️"
-                );
-
-                event.target.value = "";
-
-                if (display) {
-                    display.textContent = "";
-                }
-
-                return;
-            }
-
-            if (!file.type.startsWith("image/")) {
-
-                showToast(
-                    "Please select an image file.",
-                    "⚠️"
-                );
-
-                event.target.value = "";
-
-                return;
-            }
-
-            if (display) {
-
-                display.textContent =
-                    `✓ ${file.name}`;
-            }
-        }
-    );
-
-
-/* =========================================================
-   SCREENSHOT ANALYZER
-========================================================= */
-
-$("screenshot-form")
-    ?.addEventListener(
-        "submit",
-        async event => {
-
-            event.preventDefault();
-
-            const input =
-                $("screenshot-input");
-
-            const button =
-                $("analyze-screenshot-btn");
-
-            const file =
-                input?.files?.[0];
-
-            if (!file) {
-
-                showToast(
-                    "Upload a profile screenshot first.",
-                    "⚠️"
-                );
-
-                return;
-            }
-
-            setButtonLoading(
-                button,
-                true,
-                "ANALYZING..."
+        if (!file.type.startsWith("image/")) {
+            showToast(
+                "Please select an image file.",
+                "!"
             );
+            return;
+        }
 
-            const formData =
-                new FormData();
+        const button = $("analyze-screenshot-btn");
+
+        setButtonLoading(
+            button,
+            true,
+            "ANALYZING..."
+        );
+
+        try {
+
+            const formData = new FormData();
 
             formData.append(
                 "screenshot",
                 file
             );
 
-            try {
-
-                const response =
-                    await fetch(
-                        "/analyze-screenshot",
-                        {
-                            method: "POST",
-                            body: formData
-                        }
-                    );
-
-                const data =
-                    await response.json();
-
-                if (!response.ok) {
-                    throw new Error(
-                        data.error ||
-                        "Screenshot analysis failed."
-                    );
+            const response = await fetch(
+                "/analyze-screenshot",
+                {
+                    method: "POST",
+                    body: formData
                 }
+            );
 
-                const score =
-                    Number(data.score) || 0;
+            const result = await response.json();
 
-                const info =
-                    getRiskInfo(score);
-
-                setText(
-                    "screenshot-score",
-                    score
-                );
-
-                setText(
-                    "screenshot-level",
-                    info.level
-                );
-
-                setText(
-                    "screenshot-summary",
-                    data.summary ||
-                    "Screenshot analysis completed."
-                );
-
-                const indicators =
-                    $("screenshot-indicators");
-
-                if (indicators) {
-
-                    indicators.innerHTML = "";
-
-                    const list =
-                        Array.isArray(data.indicators)
-                            ? data.indicators
-                            : [];
-
-                    list.forEach(item => {
-
-                        const li =
-                            document.createElement("li");
-
-                        li.textContent = item;
-
-                        indicators.appendChild(li);
-                    });
-                }
-
-                const actions =
-                    $("screenshot-actions");
-
-                if (actions) {
-
-                    actions.innerHTML = "";
-
-                    const list =
-                        Array.isArray(data.actions)
-                            ? data.actions
-                            : [
-                                "Verify the account independently.",
-                                "Do not send money or OTPs.",
-                                "Do not open suspicious links."
-                            ];
-
-                    list.forEach(item => {
-
-                        const li =
-                            document.createElement("li");
-
-                        li.textContent = item;
-
-                        actions.appendChild(li);
-                    });
-                }
-
-                show(
-                    $("screenshot-result")
-                );
-
-                recordScan(
-                    "social",
-                    score
-                );
-
-                if (score >= 70) {
-
-                    playDangerSound();
-                    triggerDangerMode();
-                }
-
-                showToast(
-                    "Screenshot analysis complete.",
-                    "✓"
-                );
-
-            } catch (error) {
-
-                showToast(
-                    error.message ||
-                    "Screenshot analysis failed.",
-                    "❌"
-                );
-
-            } finally {
-
-                setButtonLoading(
-                    button,
-                    false
+            if (!response.ok) {
+                throw new Error(
+                    result.error ||
+                    "Screenshot analysis failed."
                 );
             }
+
+            setText(
+                "screenshot-score",
+                result.score
+            );
+
+            setText(
+                "screenshot-level",
+                result.level
+            );
+
+            setText(
+                "screenshot-summary",
+                result.summary
+            );
+
+            const indicators =
+                $("screenshot-indicators");
+
+            if (indicators) {
+
+                indicators.innerHTML = "";
+
+                (result.reasons || []).forEach(
+                    reason => {
+
+                        const li =
+                            document.createElement("li");
+
+                        li.textContent = reason;
+
+                        indicators.appendChild(li);
+                    }
+                );
+            }
+
+            const actions =
+                $("screenshot-actions");
+
+            if (actions) {
+
+                actions.innerHTML = "";
+
+                (result.actions || []).forEach(
+                    action => {
+
+                        const li =
+                            document.createElement("li");
+
+                        li.textContent = action;
+
+                        actions.appendChild(li);
+                    }
+                );
+            }
+
+            show($("screenshot-result"));
+
+            updateStats(
+                "screenshot",
+                result
+            );
+
+            if (
+                result.level === "HIGH" ||
+                result.level === "CRITICAL"
+            ) {
+                triggerDangerMode();
+            }
+
+            showToast(
+                `Screenshot analysis complete: ${result.level}`,
+                "✓"
+            );
+
+        } catch (error) {
+
+            showToast(
+                error.message ||
+                "Screenshot analysis failed.",
+                "!"
+            );
+
+        } finally {
+
+            setButtonLoading(
+                button,
+                false
+            );
         }
-    );
+    }
+);
 
 
 /* =========================================================
    AI CHAT
 ========================================================= */
 
-const aiBall =
-    $("ai-ball");
-
-const aiChat =
-    $("ai-chat");
-
-const aiPopup =
-    $("ai-chat-popup");
-
-const aiPopupClose =
-    $("ai-popup-close");
-
-const chatClose =
-    $("chat-close");
-
-const chatMinimize =
-    $("chat-minimize");
-
-const chatInput =
-    $("chat-input");
-
-const chatSend =
-    $("chat-send");
-
-const chatMessages =
-    $("chat-messages");
-
-const chatTyping =
-    $("chat-typing");
-
-
-function openAIChat() {
-
-    if (!aiChat) return;
-
-    aiChat.classList.add("open");
-
-    if (aiPopup) {
-        aiPopup.style.display = "none";
-    }
-
-    if (chatInput) {
-        setTimeout(
-            () => chatInput.focus(),
-            150
-        );
-    }
-}
-
-function closeAIChat() {
-
-    if (aiChat) {
-        aiChat.classList.remove("open");
-    }
-}
-
 function addChatMessage(
-    message,
-    type = "bot"
+    text,
+    sender = "ai"
 ) {
 
-    if (!chatMessages) return;
+    const container = $("chat-messages");
+
+    if (!container) return;
 
     const wrapper =
         document.createElement("div");
 
     wrapper.className =
-        `chat-message ${type}`;
+        `chat-message ${sender === "user" ? "user" : ""}`;
 
     const avatar =
         document.createElement("div");
@@ -1202,47 +721,48 @@ function addChatMessage(
     avatar.className = "avatar";
 
     avatar.textContent =
-        type === "user"
-            ? "👤"
-            : "🛡️";
+        sender === "user" ? "U" : "✦";
 
-    const bubble =
+    const message =
         document.createElement("div");
 
-    bubble.className = "message";
+    message.className = "message";
 
     const title =
         document.createElement("strong");
 
     title.textContent =
-        type === "user"
+        sender === "user"
             ? "YOU"
             : "SENTINEL AI";
 
-    const text =
+    const paragraph =
         document.createElement("p");
 
-    text.textContent = message;
+    paragraph.textContent = text;
 
-    bubble.appendChild(title);
-    bubble.appendChild(text);
+    message.appendChild(title);
+    message.appendChild(paragraph);
 
     wrapper.appendChild(avatar);
-    wrapper.appendChild(bubble);
+    wrapper.appendChild(message);
 
-    chatMessages.appendChild(wrapper);
+    container.appendChild(wrapper);
 
-    chatMessages.scrollTop =
-        chatMessages.scrollHeight;
+    container.scrollTop =
+        container.scrollHeight;
 }
 
 
 async function sendChatMessage() {
 
-    if (!chatInput) return;
+    const input = $("chat-input");
+    const button = $("chat-send");
+
+    if (!input) return;
 
     const message =
-        chatInput.value.trim();
+        input.value.trim();
 
     if (!message) return;
 
@@ -1251,88 +771,58 @@ async function sendChatMessage() {
         "user"
     );
 
-    chatInput.value = "";
+    input.value = "";
 
-    show(chatTyping);
+    show($("chat-typing"));
+
+    if (button) {
+        button.disabled = true;
+    }
 
     try {
 
-        const response =
-            await postJSON(
-                "/chat",
-                {
-                    message
-                }
-            );
+        const result = await postJSON(
+            "/chat",
+            {
+                message: message
+            }
+        );
 
-        hide(chatTyping);
+        await sleep(250);
 
         addChatMessage(
-            response.reply ||
-            response.message ||
-            "I couldn't generate a response right now."
+            result.response ||
+            "I could not generate a response.",
+            "ai"
         );
 
     } catch (error) {
 
-        hide(chatTyping);
-
         addChatMessage(
-            "I couldn't connect to the Cyber AI service right now. You can still use the website and message scanners."
+            "Sorry, I could not connect to Cyber AI.",
+            "ai"
         );
 
-        console.error(
-            "AI chat error:",
-            error
-        );
+    } finally {
+
+        hide($("chat-typing"));
+
+        if (button) {
+            button.disabled = false;
+        }
+
+        input.focus();
     }
 }
 
-aiBall?.addEventListener(
-    "click",
-    openAIChat
-);
 
-aiPopup?.addEventListener(
-    "click",
-    event => {
-
-        if (
-            event.target !== aiPopupClose
-        ) {
-            openAIChat();
-        }
-    }
-);
-
-aiPopupClose?.addEventListener(
-    "click",
-    event => {
-
-        event.stopPropagation();
-
-        if (aiPopup) {
-            aiPopup.style.display = "none";
-        }
-    }
-);
-
-chatClose?.addEventListener(
-    "click",
-    closeAIChat
-);
-
-chatMinimize?.addEventListener(
-    "click",
-    closeAIChat
-);
-
-chatSend?.addEventListener(
+$("chat-send")?.addEventListener(
     "click",
     sendChatMessage
 );
 
-chatInput?.addEventListener(
+
+$("chat-input")?.addEventListener(
     "keydown",
     event => {
 
@@ -1350,432 +840,333 @@ chatInput?.addEventListener(
 
 
 /* =========================================================
-   AI POPUP AUTO HIDE
+   AI BALL
 ========================================================= */
 
-setTimeout(() => {
+const aiBall = $("ai-ball");
+const aiChat = $("ai-chat");
+const aiPopup = $("ai-chat-popup");
+
+function openAIChat() {
+
+    if (!aiChat) return;
+
+    aiChat.classList.add("open");
 
     if (aiPopup) {
-        aiPopup.style.display = "none";
+        hide(aiPopup);
     }
 
-}, 6500);
+    setTimeout(() => {
+        $("chat-input")?.focus();
+    }, 100);
+}
+
+function closeAIChat() {
+
+    if (!aiChat) return;
+
+    aiChat.classList.remove("open");
+}
+
+aiBall?.addEventListener(
+    "click",
+    openAIChat
+);
+
+$("ai-popup-close")?.addEventListener(
+    "click",
+    () => {
+        hide(aiPopup);
+    }
+);
+
+$("chat-close")?.addEventListener(
+    "click",
+    closeAIChat
+);
+
+$("chat-minimize")?.addEventListener(
+    "click",
+    closeAIChat
+);
 
 
 /* =========================================================
-   KEYBOARD SHORTCUT
+   KEYBOARD ESCAPE
 ========================================================= */
 
 document.addEventListener(
     "keydown",
     event => {
 
-        if (
-            (event.ctrlKey || event.metaKey) &&
-            event.key.toLowerCase() === "k"
-        ) {
-
-            event.preventDefault();
-
-            openAIChat();
-        }
-
-        if (
-            event.key === "Escape" &&
-            aiChat?.classList.contains("open")
-        ) {
-
+        if (event.key === "Escape") {
             closeAIChat();
         }
+
     }
 );
 
 
 /* =========================================================
-   GAME
+   CYBER GAME
 ========================================================= */
 
-const QUESTION_BANK = [
+const QUESTIONS = [
 
     {
-        q: "You receive an SMS saying your bank account will be blocked unless you click a link. What should you do?",
+        q: "You receive an unexpected OTP request from someone claiming to be bank support. What should you do?",
         options: [
-            "Click immediately",
-            "Share OTP",
-            "Verify through the official bank app/site",
-            "Reply with your account number"
-        ],
-        answer: 2,
-        difficulty: "EASY",
-        points: 10
-    },
-
-    {
-        q: "Someone asks for your UPI PIN to send money to you. What is correct?",
-        options: [
-            "Give the PIN",
-            "UPI PIN is not required to receive money",
-            "Send OTP instead",
-            "Give ATM PIN"
+            "Share the OTP",
+            "Ignore and never share the OTP",
+            "Send your PIN too",
+            "Forward the message"
         ],
         answer: 1,
-        difficulty: "EASY",
-        points: 10
+        difficulty: "EASY"
     },
 
     {
-        q: "A job recruiter asks you to pay a registration fee before an interview. What is the strongest warning sign?",
+        q: "Which is the safest website address?",
         options: [
-            "Professional email",
-            "Video interview",
-            "Upfront payment demand",
-            "Job description"
-        ],
-        answer: 2,
-        difficulty: "EASY",
-        points: 10
-    },
-
-    {
-        q: "Which URL is most suspicious?",
-        options: [
-            "https://www.google.com",
+            "http://bank-login-free.com",
             "https://bank.example.com",
-            "http://secure-bank-login.example.xyz",
-            "https://www.microsoft.com"
-        ],
-        answer: 2,
-        difficulty: "MEDIUM",
-        points: 20
-    },
-
-    {
-        q: "What is phishing?",
-        options: [
-            "A backup technique",
-            "A social engineering attack to steal information",
-            "A firewall",
-            "A password manager"
+            "http://secure-bank-login.xyz",
+            "https://bank-login-verify-free.com"
         ],
         answer: 1,
-        difficulty: "EASY",
-        points: 10
+        difficulty: "EASY"
     },
 
     {
-        q: "A caller claims to be from a bank and asks for your OTP. What should you do?",
+        q: "A stranger asks you to pay a registration fee for a guaranteed job. What is the best response?",
         options: [
-            "Share it",
-            "Read half of it",
-            "Refuse and contact the bank independently",
-            "Send it by SMS"
+            "Pay immediately",
+            "Send your OTP",
+            "Verify the employer independently",
+            "Send your bank password"
         ],
         answer: 2,
-        difficulty: "EASY",
-        points: 10
+        difficulty: "EASY"
     },
 
     {
-        q: "Which is the safest way to verify a suspicious link?",
+        q: "What does phishing mainly attempt to steal?",
         options: [
-            "Click it and inspect later",
-            "Search for the official website independently",
-            "Ask the sender for another link",
+            "Screen brightness",
+            "Credentials and sensitive information",
+            "Battery power",
+            "Computer wallpaper"
+        ],
+        answer: 1,
+        difficulty: "EASY"
+    },
+
+    {
+        q: "What should you do before clicking an unexpected link?",
+        options: [
+            "Click quickly",
+            "Check the destination and domain",
+            "Forward it",
             "Disable antivirus"
         ],
         answer: 1,
-        difficulty: "MEDIUM",
-        points: 20
-    },
-
-    {
-        q: "What does 2FA provide?",
-        options: [
-            "Two usernames",
-            "An additional authentication layer",
-            "Two bank accounts",
-            "Automatic antivirus"
-        ],
-        answer: 1,
-        difficulty: "EASY",
-        points: 10
-    },
-
-    {
-        q: "A social media profile copies a celebrity's name and asks followers for money. What should you suspect?",
-        options: [
-            "Official promotion",
-            "Impersonation scam",
-            "Normal giveaway",
-            "Verified banking account"
-        ],
-        answer: 1,
-        difficulty: "MEDIUM",
-        points: 20
-    },
-
-    {
-        q: "You accidentally transferred money to a scammer in India. What should you do first?",
-        options: [
-            "Wait one week",
-            "Send more money",
-            "Report immediately through 1930",
-            "Delete all evidence"
-        ],
-        answer: 2,
-        difficulty: "MEDIUM",
-        points: 20
+        difficulty: "EASY"
     },
 
     {
         q: "Which password is strongest?",
         options: [
-            "mohit123",
-            "password123",
-            "A long unique password/passphrase",
-            "12345678"
+            "mohith123",
+            "password",
+            "MyName2009",
+            "A unique long password with mixed characters"
         ],
-        answer: 2,
-        difficulty: "EASY",
-        points: 10
+        answer: 3,
+        difficulty: "MEDIUM"
     },
 
     {
-        q: "What should you do with an unknown APK sent through WhatsApp?",
+        q: "Someone says your account will be blocked unless you act in five minutes. This is an example of:",
         options: [
-            "Install it",
-            "Forward it",
-            "Avoid installing it",
-            "Disable Play Protect"
-        ],
-        answer: 2,
-        difficulty: "MEDIUM",
-        points: 20
-    },
-
-    {
-        q: "An investment platform promises guaranteed huge returns with no risk. What is this?",
-        options: [
-            "Normal banking",
-            "Potential investment scam",
-            "Government guarantee",
-            "Password reset"
-        ],
-        answer: 1,
-        difficulty: "MEDIUM",
-        points: 20
-    },
-
-    {
-        q: "Why can urgency be a phishing warning sign?",
-        options: [
-            "Attackers use pressure to prevent careful verification",
-            "Urgent messages are always legitimate",
-            "Banks always use urgency",
-            "It improves encryption"
+            "Urgency tactic",
+            "Normal support",
+            "Software update",
+            "Backup"
         ],
         answer: 0,
-        difficulty: "MEDIUM",
-        points: 20
+        difficulty: "EASY"
     },
 
     {
-        q: "What should you do if a website asks for your OTP unexpectedly?",
+        q: "What should you do if you receive a suspicious bank message?",
         options: [
-            "Enter it",
-            "Share it with support",
-            "Stop and verify the website",
-            "Send a screenshot"
+            "Use the link in the message",
+            "Reply with OTP",
+            "Contact the bank using its official channel",
+            "Send your card number"
         ],
         answer: 2,
-        difficulty: "EASY",
-        points: 10
+        difficulty: "MEDIUM"
+    },
+
+    {
+        q: "What is two-factor authentication designed to provide?",
+        options: [
+            "Extra security verification",
+            "Faster internet",
+            "More storage",
+            "Free Wi-Fi"
+        ],
+        answer: 0,
+        difficulty: "EASY"
+    },
+
+    {
+        q: "A social media profile promises to double your money quickly. What should you suspect?",
+        options: [
+            "Guaranteed investment opportunity",
+            "Possible scam",
+            "Normal banking",
+            "Software update"
+        ],
+        answer: 1,
+        difficulty: "MEDIUM"
+    },
+
+    {
+        q: "Why should you avoid shortened links from unknown senders?",
+        options: [
+            "They always contain viruses",
+            "They can hide the real destination",
+            "They improve security",
+            "They are official links"
+        ],
+        answer: 1,
+        difficulty: "MEDIUM"
+    },
+
+    {
+        q: "Which information should never be shared casually?",
+        options: [
+            "Favorite color",
+            "OTP and password",
+            "Favorite movie",
+            "Public username"
+        ],
+        answer: 1,
+        difficulty: "EASY"
+    },
+
+    {
+        q: "You receive a prize notification for a contest you never entered. What should you do?",
+        options: [
+            "Pay the processing fee",
+            "Share bank details",
+            "Treat it as suspicious",
+            "Send OTP"
+        ],
+        answer: 2,
+        difficulty: "EASY"
+    },
+
+    {
+        q: "What is a common sign of a fake website?",
+        options: [
+            "Correct official domain",
+            "Suspicious spelling in the domain",
+            "Normal HTTPS",
+            "Official contact information"
+        ],
+        answer: 1,
+        difficulty: "MEDIUM"
+    },
+
+    {
+        q: "What should you do with a suspicious attachment?",
+        options: [
+            "Open it immediately",
+            "Verify the sender before opening",
+            "Forward it to everyone",
+            "Disable security software"
+        ],
+        answer: 1,
+        difficulty: "MEDIUM"
+    },
+
+    {
+        q: "Which action is safest on public Wi-Fi?",
+        options: [
+            "Access sensitive accounts without protection",
+            "Share passwords",
+            "Avoid sensitive transactions when possible",
+            "Disable all security"
+        ],
+        answer: 2,
+        difficulty: "MEDIUM"
+    },
+
+    {
+        q: "A caller claiming to be police demands an immediate payment to avoid arrest. What is this likely to be?",
+        options: [
+            "Normal procedure",
+            "Possible impersonation scam",
+            "Software update",
+            "Bank verification"
+        ],
+        answer: 1,
+        difficulty: "HARD"
     },
 
     {
         q: "What is social engineering?",
         options: [
-            "Manipulating people into revealing information or taking unsafe actions",
-            "Building social networks",
-            "Encrypting files",
-            "Updating software"
+            "Manipulating people into revealing information",
+            "Building a social media page",
+            "Installing a printer",
+            "Changing a password"
         ],
         answer: 0,
-        difficulty: "MEDIUM",
-        points: 20
+        difficulty: "MEDIUM"
     },
 
     {
-        q: "A fake courier message says you must pay ₹25 immediately to release a parcel. What should you do?",
+        q: "If your account may have been compromised, what should you do first?",
         options: [
-            "Pay immediately",
-            "Verify through the courier's official website",
-            "Share card details",
-            "Give OTP"
+            "Ignore it",
+            "Change the password and secure the account",
+            "Share the password",
+            "Delete all evidence"
         ],
         answer: 1,
-        difficulty: "MEDIUM",
-        points: 20
+        difficulty: "MEDIUM"
     },
 
     {
-        q: "What is credential phishing mainly trying to steal?",
+        q: "What is the safest way to verify an organization contacting you?",
         options: [
-            "Wallpaper",
-            "Login information",
-            "Screen brightness",
-            "Battery power"
+            "Use the link they sent",
+            "Call a number from the message",
+            "Find the official website independently",
+            "Ask another unknown person"
         ],
-        answer: 1,
-        difficulty: "EASY",
-        points: 10
-    },
-
-    {
-        q: "Which practice improves account security?",
-        options: [
-            "Reuse passwords",
-            "Enable 2FA",
-            "Share recovery codes",
-            "Use public passwords"
-        ],
-        answer: 1,
-        difficulty: "EASY",
-        points: 10
-    },
-
-    {
-        q: "A caller says they are police and threatens arrest unless you transfer money. What should you suspect?",
-        options: [
-            "Routine verification",
-            "Possible impersonation/extortion scam",
-            "Normal banking process",
-            "Password reset"
-        ],
-        answer: 1,
-        difficulty: "HARD",
-        points: 30
+        answer: 2,
+        difficulty: "HARD"
     }
 
 ];
 
 
-/* Generate additional safe variations */
-const variationTemplates = [
-
-    "You receive a suspicious message asking you to verify your account urgently. What is the safest response?",
-    "A stranger requests an OTP claiming it is required for verification. What should you do?",
-    "A website uses a very unusual domain and asks for banking credentials. What should you do?",
-    "A social media account promises guaranteed investment returns. What is the safest approach?",
-    "Someone asks you to install an unknown application to receive a refund. What should you do?",
-    "A message claims you won a prize but asks for a processing fee. What should you suspect?",
-    "A caller asks for your card PIN while pretending to be customer support. What should you do?",
-    "A shortened URL arrives from an unknown person. What should you do before opening it?",
-    "A recruiter asks for money before offering a job. What is the warning sign?",
-    "A suspicious account copies a friend's profile photo and asks for money. What should you do?"
-];
-
-variationTemplates.forEach(
-    (question, index) => {
-
-        QUESTION_BANK.push({
-
-            q: question,
-
-            options: [
-                "Act immediately",
-                "Share sensitive information",
-                "Verify independently before acting",
-                "Send payment"
-            ],
-
-            answer: 2,
-
-            difficulty:
-                index % 3 === 0
-                    ? "EASY"
-                    : index % 3 === 1
-                        ? "MEDIUM"
-                        : "HARD",
-
-            points:
-                index % 3 === 0
-                    ? 10
-                    : index % 3 === 1
-                        ? 20
-                        : 30
-        });
-    }
-);
-
-
-/* Add generated awareness questions */
-const generatedTopics = [
-    "OTP",
-    "UPI",
-    "passwords",
-    "phishing links",
-    "fake jobs",
-    "fake investments",
-    "social impersonation",
-    "malware",
-    "fake courier messages",
-    "account takeover",
-    "email phishing",
-    "QR scams",
-    "bank impersonation",
-    "fake customer support",
-    "romance scams"
-];
-
-generatedTopics.forEach(
-    (topic, index) => {
-
-        QUESTION_BANK.push({
-
-            q:
-                `Which action is safest when dealing with a suspicious ${topic} situation?`,
-
-            options: [
-                "Trust it immediately",
-                "Share OTP/PIN",
-                "Verify through an independent trusted source",
-                "Send money"
-            ],
-
-            answer: 2,
-
-            difficulty:
-                index % 4 === 0
-                    ? "EASY"
-                    : index % 4 === 1
-                        ? "MEDIUM"
-                        : index % 4 === 2
-                            ? "HARD"
-                            : "EXPERT",
-
-            points:
-                index % 4 === 0
-                    ? 10
-                    : index % 4 === 1
-                        ? 20
-                        : index % 4 === 2
-                            ? 30
-                            : 50
-        });
-    }
-);
-
-
-let gameQuestions = [];
-let currentQuestion = 0;
-let gameScore = 0;
-let gameStreak = 0;
-let bestStreak = 0;
-let correctAnswers = 0;
-let wrongAnswers = 0;
-let mistakes = [];
-let questionStartTime = 0;
+let gameState = {
+    questions: [],
+    index: 0,
+    score: 0,
+    streak: 0,
+    bestStreak: 0,
+    correct: 0,
+    wrong: 0,
+    mistakes: []
+};
 
 
 function shuffle(array) {
@@ -1789,17 +1180,10 @@ function shuffle(array) {
     ) {
 
         const j =
-            Math.floor(
-                Math.random() * (i + 1)
-            );
+            Math.floor(Math.random() * (i + 1));
 
-        [
-            copy[i],
-            copy[j]
-        ] = [
-            copy[j],
-            copy[i]
-        ];
+        [copy[i], copy[j]] =
+            [copy[j], copy[i]];
     }
 
     return copy;
@@ -1808,44 +1192,47 @@ function shuffle(array) {
 
 function startGame() {
 
-    gameQuestions =
-        shuffle(QUESTION_BANK)
-            .slice(0, 15);
+    gameState = {
+        questions: shuffle(QUESTIONS),
+        index: 0,
+        score: 0,
+        streak: 0,
+        bestStreak: 0,
+        correct: 0,
+        wrong: 0,
+        mistakes: []
+    };
 
-    currentQuestion = 0;
-    gameScore = 0;
-    gameStreak = 0;
-    bestStreak = 0;
-    correctAnswers = 0;
-    wrongAnswers = 0;
-    mistakes = [];
+    setText(
+        "question-bank-count",
+        QUESTIONS.length
+    );
 
     hide($("game-start"));
     hide($("game-over"));
-
     show($("game-play"));
 
     updateGameStats();
 
-    loadQuestion();
+    showQuestion();
 }
 
 
-function loadQuestion() {
+function showQuestion() {
 
     const question =
-        gameQuestions[currentQuestion];
+        gameState.questions[
+            gameState.index
+        ];
 
     if (!question) {
-
         endGame();
-
         return;
     }
 
     setText(
         "question-number",
-        `${currentQuestion + 1}/15`
+        `Question ${gameState.index + 1} / ${gameState.questions.length}`
     );
 
     setText(
@@ -1858,13 +1245,21 @@ function loadQuestion() {
         question.difficulty
     );
 
+    setText(
+        "answer-feedback",
+        ""
+    );
+
     const progress =
+        ((gameState.index) /
+        gameState.questions.length) * 100;
+
+    const progressBar =
         $("game-progress");
 
-    if (progress) {
-
-        progress.style.width =
-            `${(currentQuestion / 15) * 100}%`;
+    if (progressBar) {
+        progressBar.style.width =
+            `${progress}%`;
     }
 
     const options =
@@ -1880,8 +1275,10 @@ function loadQuestion() {
             const button =
                 document.createElement("button");
 
+            button.type = "button";
+
             button.textContent =
-                option;
+                `${String.fromCharCode(65 + index)}. ${option}`;
 
             button.addEventListener(
                 "click",
@@ -1891,26 +1288,22 @@ function loadQuestion() {
             options.appendChild(button);
         }
     );
-
-    setText(
-        "answer-feedback",
-        ""
-    );
-
-    questionStartTime =
-        Date.now();
 }
 
 
 function answerQuestion(selected) {
 
     const question =
-        gameQuestions[currentQuestion];
+        gameState.questions[
+            gameState.index
+        ];
 
     if (!question) return;
 
     const buttons =
-        $$("#question-options button");
+        document.querySelectorAll(
+            "#question-options button"
+        );
 
     buttons.forEach(
         button => {
@@ -1918,36 +1311,26 @@ function answerQuestion(selected) {
         }
     );
 
-    const elapsed =
-        (Date.now() - questionStartTime) / 1000;
-
     const correct =
         selected === question.answer;
 
     if (correct) {
 
-        correctAnswers++;
+        gameState.correct++;
 
-        gameStreak++;
+        gameState.streak++;
 
-        bestStreak =
+        gameState.bestStreak =
             Math.max(
-                bestStreak,
-                gameStreak
+                gameState.bestStreak,
+                gameState.streak
             );
 
-        let points =
-            question.points;
+        const points =
+            100 +
+            (gameState.streak - 1) * 25;
 
-        if (elapsed < 5) {
-            points += 5;
-        }
-
-        if (gameStreak >= 3) {
-            points += 5;
-        }
-
-        gameScore += points;
+        gameState.score += points;
 
         setText(
             "answer-feedback",
@@ -1956,23 +1339,21 @@ function answerQuestion(selected) {
 
     } else {
 
-        wrongAnswers++;
+        gameState.wrong++;
 
-        gameStreak = 0;
+        gameState.streak = 0;
 
-        mistakes.push({
+        gameState.mistakes.push({
             question: question.q,
-            correct:
-                question.options[
-                    question.answer
-                ],
             selected:
-                question.options[selected]
+                question.options[selected],
+            correct:
+                question.options[question.answer]
         });
 
         setText(
             "answer-feedback",
-            `✕ Incorrect. Correct answer: ${question.options[question.answer]}`
+            `✗ Incorrect. Correct answer: ${question.options[question.answer]}`
         );
     }
 
@@ -1981,9 +1362,9 @@ function answerQuestion(selected) {
     setTimeout(
         () => {
 
-            currentQuestion++;
+            gameState.index++;
 
-            loadQuestion();
+            showQuestion();
 
         },
         900
@@ -1995,27 +1376,27 @@ function updateGameStats() {
 
     setText(
         "game-score",
-        gameScore
+        gameState.score
     );
 
     setText(
         "game-streak",
-        gameStreak
+        gameState.streak
     );
 
     setText(
         "game-correct",
-        correctAnswers
+        gameState.correct
     );
 
     setText(
         "game-wrong",
-        wrongAnswers
+        gameState.wrong
     );
 
     setText(
         "game-best-streak",
-        bestStreak
+        gameState.bestStreak
     );
 }
 
@@ -2025,29 +1406,31 @@ function endGame() {
     hide($("game-play"));
     show($("game-over"));
 
+    const total =
+        gameState.correct +
+        gameState.wrong;
+
     const accuracy =
-        Math.round(
-            (correctAnswers / 15) * 100
-        );
+        total > 0
+            ? Math.round(
+                gameState.correct /
+                total * 100
+            )
+            : 0;
 
-    let level =
-        "BEGINNER";
-
-    if (accuracy >= 60) {
-        level = "CYBER LEARNER";
-    }
-
-    if (accuracy >= 75) {
-        level = "CYBER DEFENDER";
-    }
+    let level = "BEGINNER";
 
     if (accuracy >= 90) {
-        level = "CYBER GUARDIAN";
+        level = "CYBER EXPERT";
+    } else if (accuracy >= 75) {
+        level = "ADVANCED";
+    } else if (accuracy >= 55) {
+        level = "INTERMEDIATE";
     }
 
     setText(
         "final-score",
-        gameScore
+        gameState.score
     );
 
     setText(
@@ -2057,17 +1440,17 @@ function endGame() {
 
     setText(
         "final-correct",
-        correctAnswers
+        gameState.correct
     );
 
     setText(
         "final-wrong",
-        wrongAnswers
+        gameState.wrong
     );
 
     setText(
         "final-streak",
-        bestStreak
+        gameState.bestStreak
     );
 
     setText(
@@ -2075,79 +1458,80 @@ function endGame() {
         `${accuracy}%`
     );
 
-    const mistakeReview =
+    const mistakes =
         $("mistake-review");
 
-    if (mistakeReview) {
+    if (mistakes) {
 
-        mistakeReview.innerHTML = "";
+        if (gameState.mistakes.length) {
 
-        if (!mistakes.length) {
+            mistakes.innerHTML =
+                "<h3>Mistake Review</h3>";
 
-            mistakeReview.innerHTML =
-                "<strong>🎯 Perfect run! No mistakes.</strong>";
-
-        } else {
-
-            const title =
-                document.createElement("h3");
-
-            title.textContent =
-                "🧠 Mistake Review";
-
-            mistakeReview.appendChild(title);
-
-            mistakes.forEach(
+            gameState.mistakes.forEach(
                 mistake => {
 
                     const item =
                         document.createElement("div");
 
-                    item.style.marginTop =
-                        "12px";
+                    item.style.marginBottom = "15px";
 
                     item.innerHTML = `
                         <strong>${escapeHTML(mistake.question)}</strong>
-                        <br>
-                        <span>Correct: ${escapeHTML(mistake.correct)}</span>
+                        <p style="margin-top:5px;">
+                            Your answer:
+                            ${escapeHTML(mistake.selected)}
+                        </p>
+                        <p>
+                            Correct:
+                            ${escapeHTML(mistake.correct)}
+                        </p>
                     `;
 
-                    mistakeReview.appendChild(item);
+                    mistakes.appendChild(item);
                 }
             );
+
+            show(mistakes);
+
+        } else {
+
+            hide(mistakes);
         }
     }
 
-    const stats =
-        getStats();
+    const stats = getStats();
 
-    if (gameScore > stats.bestScore) {
+    stats.bestScore =
+        Math.max(
+            stats.bestScore,
+            gameState.score
+        );
 
-        stats.bestScore =
-            gameScore;
+    stats.level = level;
 
-        saveStats(stats);
+    saveStats(stats);
+
+    renderDashboard();
+
+    const progress =
+        $("game-progress");
+
+    if (progress) {
+        progress.style.width = "100%";
     }
-
-    updateDashboard();
 }
 
 
-$("start-game-btn")
-    ?.addEventListener(
-        "click",
-        startGame
-    );
+$("start-game-btn")?.addEventListener(
+    "click",
+    startGame
+);
 
-$("restart-game-btn")
-    ?.addEventListener(
-        "click",
-        startGame
-    );
 
-setText(
-    "question-bank-count",
-    `${QUESTION_BANK.length}+`
+$("restart-game-btn")?.addEventListener(
+    "click",
+    startGame
 );
 
 
@@ -2155,10 +1539,29 @@ setText(
    INITIALIZATION
 ========================================================= */
 
-updateDashboard();
+document.addEventListener(
+    "DOMContentLoaded",
+    () => {
 
-console.log(
-    `%cSENTINEL CYBER INTELLIGENCE%c\nSystem initialized.`,
-    "color:#35d9ff;font-size:20px;font-weight:bold;",
-    "color:#8ea3bd;"
+        renderDashboard();
+
+        setText(
+            "question-bank-count",
+            QUESTIONS.length
+        );
+
+        hide($("game-play"));
+        hide($("game-over"));
+
+        const pages =
+            document.querySelectorAll(".page");
+
+        pages.forEach(page => {
+
+            if (page.id === "home") {
+                page.classList.add("active");
+            }
+        });
+
+    }
 );
