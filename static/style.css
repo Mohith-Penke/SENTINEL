@@ -970,3 +970,626 @@ footer {
 .social-platform-card.selected-platform {
     transform: translateY(-5px);
 }
+/* =====================================================
+SENTINEL — PREMIUM CYBER GLOSS UI
+Add at the VERY END of style.css
+===================================================== */
+
+/* ---------- PREMIUM BACKGROUND ---------- */
+
+body {
+position: relative;
+overflow-x: hidden;
+background:
+radial-gradient(circle at 15% 20%, rgba(0, 140, 255, 0.10), transparent 28%),
+radial-gradient(circle at 85% 30%, rgba(120, 0, 255, 0.10), transparent 28%),
+radial-gradient(circle at 50% 90%, rgba(0, 220, 255, 0.07), transparent 32%),
+#050914;
+}
+
+/* Cyber grid */
+
+body::before {
+content: "";
+position: fixed;
+inset: 0;
+z-index: -3;
+pointer-events: none;
+
+```
+background-image:
+    linear-gradient(rgba(0, 180, 255, 0.055) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(0, 180, 255, 0.055) 1px, transparent 1px);
+
+background-size: 55px 55px;
+
+animation: cyberGridMove 18s linear infinite;
+```
+
+}
+
+@keyframes cyberGridMove {
+from {
+transform: translate(0, 0);
+}
+
+```
+to {
+    transform: translate(55px, 55px);
+}
+```
+
+}
+
+/* ---------- MOVING CYBER LIGHT ---------- */
+
+body::after {
+content: "";
+position: fixed;
+width: 500px;
+height: 500px;
+left: -150px;
+top: 10%;
+z-index: -2;
+pointer-events: none;
+
+```
+border-radius: 50%;
+
+background:
+    radial-gradient(
+        circle,
+        rgba(0, 190, 255, 0.14),
+        rgba(0, 110, 255, 0.04) 40%,
+        transparent 70%
+    );
+
+filter: blur(25px);
+
+animation: cyberOrb 16s ease-in-out infinite alternate;
+```
+
+}
+
+@keyframes cyberOrb {
+
+```
+0% {
+    transform: translate(0, 0) scale(0.8);
+}
+
+50% {
+    transform: translate(45vw, 25vh) scale(1.25);
+}
+
+100% {
+    transform: translate(75vw, 65vh) scale(0.9);
+}
+```
+
+}
+
+/* ---------- NAVBAR ---------- */
+
+.navbar {
+background: rgba(5, 10, 22, 0.72) !important;
+
+```
+backdrop-filter: blur(22px);
+-webkit-backdrop-filter: blur(22px);
+
+border-bottom: 1px solid rgba(90, 200, 255, 0.15);
+
+box-shadow:
+    0 10px 40px rgba(0, 0, 0, 0.30),
+    inset 0 -1px rgba(255, 255, 255, 0.04);
+```
+
+}
+
+/* ---------- LOGO ---------- */
+
+.logo {
+text-shadow:
+0 0 8px rgba(0, 190, 255, 0.7),
+0 0 25px rgba(0, 120, 255, 0.35);
+}
+
+/* ---------- HERO ---------- */
+
+.hero {
+position: relative;
+}
+
+.hero::before {
+content: "";
+position: absolute;
+
+```
+width: 320px;
+height: 320px;
+
+right: 5%;
+top: 5%;
+
+border-radius: 50%;
+
+background:
+    radial-gradient(
+        circle,
+        rgba(0, 190, 255, 0.12),
+        transparent 68%
+    );
+
+filter: blur(10px);
+
+animation: heroGlow 7s ease-in-out infinite alternate;
+
+pointer-events: none;
+```
+
+}
+
+@keyframes heroGlow {
+
+```
+from {
+    transform: scale(0.8);
+    opacity: 0.5;
+}
+
+to {
+    transform: scale(1.25);
+    opacity: 1;
+}
+```
+
+}
+
+/* ---------- HERO TITLE ---------- */
+
+.hero h1 {
+text-shadow:
+0 0 25px rgba(0, 170, 255, 0.12);
+}
+
+/* ---------- PREMIUM FEATURE CARDS ---------- */
+
+.feature-card {
+position: relative;
+overflow: hidden;
+
+```
+background:
+    linear-gradient(
+        145deg,
+        rgba(255, 255, 255, 0.075),
+        rgba(255, 255, 255, 0.025)
+    ) !important;
+
+border: 1px solid rgba(130, 210, 255, 0.14) !important;
+
+backdrop-filter: blur(18px);
+-webkit-backdrop-filter: blur(18px);
+
+box-shadow:
+    0 20px 50px rgba(0, 0, 0, 0.25),
+    inset 0 1px rgba(255, 255, 255, 0.08);
+
+transition:
+    transform 0.35s ease,
+    border-color 0.35s ease,
+    box-shadow 0.35s ease;
+```
+
+}
+
+/* Glossy reflection */
+
+.feature-card::before {
+content: "";
+
+```
+position: absolute;
+
+width: 180%;
+height: 70px;
+
+top: -100px;
+left: -40%;
+
+transform: rotate(-12deg);
+
+background:
+    linear-gradient(
+        90deg,
+        transparent,
+        rgba(255,255,255,0.12),
+        transparent
+    );
+
+animation: cardShine 7s ease-in-out infinite;
+
+pointer-events: none;
+```
+
+}
+
+@keyframes cardShine {
+
+```
+0% {
+    top: -120px;
+}
+
+45%,
+100% {
+    top: 130%;
+}
+```
+
+}
+
+/* Hover */
+
+.feature-card:hover {
+transform: translateY(-8px) scale(1.015);
+
+```
+border-color:
+    rgba(80, 210, 255, 0.38) !important;
+
+box-shadow:
+    0 25px 60px rgba(0, 0, 0, 0.38),
+    0 0 30px rgba(0, 160, 255, 0.10),
+    inset 0 1px rgba(255, 255, 255, 0.12);
+```
+
+}
+
+/* ---------- PANELS ---------- */
+
+.panel {
+background:
+linear-gradient(
+145deg,
+rgba(255, 255, 255, 0.07),
+rgba(255, 255, 255, 0.025)
+) !important;
+
+```
+border: 1px solid rgba(130, 210, 255, 0.14) !important;
+
+backdrop-filter: blur(20px);
+-webkit-backdrop-filter: blur(20px);
+
+box-shadow:
+    0 25px 70px rgba(0, 0, 0, 0.28),
+    inset 0 1px rgba(255, 255, 255, 0.07);
+```
+
+}
+
+/* ---------- BUTTONS ---------- */
+
+.primary-btn {
+box-shadow:
+0 8px 25px rgba(0, 150, 255, 0.18),
+inset 0 1px rgba(255, 255, 255, 0.18);
+
+```
+transition:
+    transform 0.25s ease,
+    box-shadow 0.25s ease;
+```
+
+}
+
+.primary-btn:hover {
+transform: translateY(-3px);
+
+```
+box-shadow:
+    0 12px 35px rgba(0, 160, 255, 0.30),
+    0 0 25px rgba(0, 170, 255, 0.12),
+    inset 0 1px rgba(255, 255, 255, 0.20);
+```
+
+}
+
+.secondary-btn {
+backdrop-filter: blur(12px);
+-webkit-backdrop-filter: blur(12px);
+}
+
+/* ---------- INPUTS ---------- */
+
+input,
+textarea {
+background:
+rgba(0, 0, 0, 0.28) !important;
+
+```
+border-color:
+    rgba(100, 190, 255, 0.16) !important;
+
+box-shadow:
+    inset 0 1px rgba(255, 255, 255, 0.025);
+```
+
+}
+
+input:focus,
+textarea:focus {
+border-color:
+rgba(70, 200, 255, 0.55) !important;
+
+```
+box-shadow:
+    0 0 0 3px rgba(0, 160, 255, 0.08),
+    0 0 25px rgba(0, 160, 255, 0.08);
+```
+
+}
+
+/* ---------- SOCIAL PLATFORM CARDS ---------- */
+
+.social-platform-card {
+position: relative;
+}
+
+.social-platform-card:hover {
+transform: translateY(-9px) scale(1.02);
+}
+
+.social-platform-card.selected-platform {
+border-color:
+rgba(70, 210, 255, 0.55) !important;
+
+```
+box-shadow:
+    0 20px 55px rgba(0, 0, 0, 0.35),
+    0 0 35px rgba(0, 180, 255, 0.13);
+```
+
+}
+
+/* ---------- PLATFORM LOGOS ---------- */
+
+.platform-logo {
+filter:
+drop-shadow(0 0 12px rgba(0, 170, 255, 0.20));
+
+```
+transition:
+    transform 0.3s ease,
+    filter 0.3s ease;
+```
+
+}
+
+.social-platform-card:hover .platform-logo {
+transform: scale(1.10);
+
+```
+filter:
+    drop-shadow(0 0 18px rgba(0, 200, 255, 0.35));
+```
+
+}
+
+/* ---------- DASHBOARD CARDS ---------- */
+
+.dashboard-card {
+background:
+linear-gradient(
+145deg,
+rgba(255, 255, 255, 0.07),
+rgba(255, 255, 255, 0.025)
+) !important;
+
+```
+border: 1px solid rgba(130, 210, 255, 0.13) !important;
+
+backdrop-filter: blur(18px);
+-webkit-backdrop-filter: blur(18px);
+
+box-shadow:
+    0 20px 45px rgba(0, 0, 0, 0.25),
+    inset 0 1px rgba(255, 255, 255, 0.07);
+
+transition:
+    transform 0.3s ease,
+    box-shadow 0.3s ease;
+```
+
+}
+
+.dashboard-card:hover {
+transform: translateY(-6px);
+
+```
+box-shadow:
+    0 25px 55px rgba(0, 0, 0, 0.35),
+    0 0 25px rgba(0, 160, 255, 0.10);
+```
+
+}
+
+/* ---------- AI BALL PREMIUM GLOW ---------- */
+
+#ai-ball {
+box-shadow:
+0 0 0 1px rgba(100, 220, 255, 0.20),
+0 0 25px rgba(0, 170, 255, 0.35),
+0 0 60px rgba(0, 100, 255, 0.15) !important;
+
+```
+animation:
+    aiPulse 3s ease-in-out infinite !important;
+```
+
+}
+
+@keyframes aiPulse {
+
+```
+0%,
+100% {
+    box-shadow:
+        0 0 0 1px rgba(100, 220, 255, 0.20),
+        0 0 25px rgba(0, 170, 255, 0.35),
+        0 0 60px rgba(0, 100, 255, 0.15);
+}
+
+50% {
+    box-shadow:
+        0 0 0 1px rgba(100, 220, 255, 0.30),
+        0 0 35px rgba(0, 200, 255, 0.55),
+        0 0 80px rgba(0, 120, 255, 0.22);
+}
+```
+
+}
+
+/* ---------- AI CHAT ---------- */
+
+.ai-chat {
+background:
+linear-gradient(
+145deg,
+rgba(8, 18, 35, 0.92),
+rgba(3, 9, 20, 0.92)
+) !important;
+
+```
+backdrop-filter: blur(25px);
+-webkit-backdrop-filter: blur(25px);
+
+border:
+    1px solid rgba(100, 210, 255, 0.18) !important;
+
+box-shadow:
+    0 30px 90px rgba(0, 0, 0, 0.50),
+    0 0 45px rgba(0, 150, 255, 0.10);
+```
+
+}
+
+/* ---------- RESULT CARDS ---------- */
+
+.result-card {
+background:
+linear-gradient(
+145deg,
+rgba(255, 255, 255, 0.06),
+rgba(255, 255, 255, 0.02)
+) !important;
+
+```
+backdrop-filter: blur(16px);
+-webkit-backdrop-filter: blur(16px);
+
+border-color:
+    rgba(100, 200, 255, 0.13) !important;
+```
+
+}
+
+/* ---------- UPLOAD BOX ---------- */
+
+.upload-box {
+background:
+linear-gradient(
+145deg,
+rgba(255,255,255,0.055),
+rgba(255,255,255,0.018)
+);
+
+```
+border:
+    1px dashed rgba(100, 210, 255, 0.24);
+
+border-radius: 18px;
+
+box-shadow:
+    inset 0 1px rgba(255,255,255,0.05);
+```
+
+}
+
+/* ---------- FOOTER ---------- */
+
+footer {
+background:
+rgba(3, 8, 18, 0.75) !important;
+
+```
+backdrop-filter: blur(15px);
+-webkit-backdrop-filter: blur(15px);
+
+border-top:
+    1px solid rgba(100, 200, 255, 0.10);
+```
+
+}
+
+/* ---------- SMOOTH PAGE FEEL ---------- */
+
+.page {
+animation: pageAppear 0.45s ease;
+}
+
+@keyframes pageAppear {
+
+```
+from {
+    opacity: 0;
+    transform: translateY(8px);
+}
+
+to {
+    opacity: 1;
+    transform: translateY(0);
+}
+```
+
+}
+
+/* ---------- REDUCE MOTION FOR USERS WHO REQUEST IT ---------- */
+
+@media (prefers-reduced-motion: reduce) {
+
+```
+*,
+*::before,
+*::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+}
+```
+
+}
+
+/* ---------- MOBILE ---------- */
+
+@media (max-width: 600px) {
+
+```
+body::before {
+    background-size: 38px 38px;
+}
+
+.feature-card:hover {
+    transform: translateY(-4px);
+}
+
+.panel {
+    backdrop-filter: blur(14px);
+    -webkit-backdrop-filter: blur(14px);
+}
+```
+
+}
+
