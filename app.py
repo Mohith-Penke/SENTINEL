@@ -623,94 +623,134 @@ def _read_uploaded_image(file):
     return data
 
 
-_SOCIAL_OCR_ENGINE = None
+def _prepare_ocr_upload(image_bytes):
+    """Prepare the screenshot for OCR.space free-tier limits.
 
-
-def _ocr_pass(image, config=None):
-    """Run one offline RapidOCR pass. No API, browser service or system binary."""
+    OCR.space free endpoint accepts image uploads, but the free plan has a
+    small image-size limit. Resize/compress locally before sending so normal
+    phone screenshots can still be analysed.
+    """
     try:
-        import numpy as np
-        from rapidocr import RapidOCR
+        from PIL import Image
+        import io
 
-        # Cache the engine after the first request so repeated screenshots stay fast.
-        global _SOCIAL_OCR_ENGINE
-        if _SOCIAL_OCR_ENGINE is None:
-            _SOCIAL_OCR_ENGINE = RapidOCR()
+        image = Image.open(io.BytesIO(image_bytes)).convert("RGB")
+        max_side = 1800
+        if max(image.size) > max_side:
+            scale = max_side / float(max(image.size))
+            image = image.resize(
+                (max(1, int(image.width * scale)),
+                 max(1, int(image.height * scale)))
+            )
 
-        if hasattr(image, "convert"):
-            image = image.convert("RGB")
-            image = np.array(image)
-        elif isinstance(image, bytes):
-            from PIL import Image
-            import io
-            image = np.array(Image.open(io.BytesIO(image)).convert("RGB"))
-
-        result = _SOCIAL_OCR_ENGINE(image)
-
-        # RapidOCR 3.x returns an object with txts; keep compatibility with
-        # tuple/list/dict-shaped results as well.
-        texts = getattr(result, "txts", None)
-        if texts is None and isinstance(result, dict):
-            texts = result.get("txts") or result.get("texts") or result.get("text")
-        if texts is None and isinstance(result, (tuple, list)):
-            for item in result:
-                if isinstance(item, (list, tuple)) and item and all(isinstance(x, str) for x in item):
-                    texts = item
-                    break
-
-        if isinstance(texts, str):
-            return texts.strip()
-        if isinstance(texts, (list, tuple)):
-            return "\n".join(str(x).strip() for x in texts if str(x).strip())
-        return ""
+        quality = 88
+        while True:
+            out = io.BytesIO()
+            image.save(out, format="JPEG", quality=quality, optimize=True)
+            data = out.getvalue()
+            # Keep comfortably below OCR.space's 1 MB free-tier image limit.
+            if len(data) <= 900 * 1024 or quality <= 55:
+                return data, "image/jpeg"
+            quality -= 7
     except Exception:
-        return ""
+        return image_bytes, "application/octet-stream"
+
+
+def _ocr_space_request(image_bytes):
+    """Extract text through OCR.space. The API key is read only from env."""
+    try:
+        import requests
+
+        api_key = os.environ.get("OCR_SPACE_API_KEY", "").strip()
+        if not api_key:
+            return "", "OCR_SPACE_API_KEY is not configured on the server."
+
+        upload, mime = _prepare_ocr_upload(image_bytes)
+        response = requests.post(
+            "https://api.ocr.space/parse/image",
+            files={"file": ("screenshot.jpg", upload, mime)},
+            data={
+                "apikey": api_key,
+                "language": "eng",
+                "isOverlayRequired": "false",
+                "OCREngine": "2",
+                "scale": "true",
+                "detectOrientation": "true",
+            },
+            timeout=45,
+        )
+
+        if response.status_code != 200:
+            return "", f"OCR service returned HTTP {response.status_code}."
+
+        try:
+            payload = response.json()
+        except ValueError:
+            return "", "OCR service returned an invalid JSON response."
+
+        if not isinstance(payload, dict):
+            return "", "OCR service returned an unexpected response."
+
+        if payload.get("IsErroredOnProcessing"):
+            errors = payload.get("ErrorMessage") or payload.get("ErrorDetails") or "OCR processing failed."
+            if isinstance(errors, list):
+                errors = "; ".join(str(x) for x in errors)
+            return "", str(errors)
+
+        parsed_results = payload.get("ParsedResults") or []
+        texts = []
+        for item in parsed_results:
+            if isinstance(item, dict):
+                text = item.get("ParsedText") or ""
+                if text:
+                    texts.append(str(text))
+
+        text = "\n".join(texts).strip()
+        if not text:
+            return "", "OCR service returned no readable text."
+
+        return text, ""
+    except requests.exceptions.Timeout:
+        return "", "OCR service timed out."
+    except requests.exceptions.RequestException as exc:
+        return "", f"OCR service request failed: {exc.__class__.__name__}."
+    except Exception as exc:
+        return "", f"OCR processing failed: {exc.__class__.__name__}."
 
 
 def _extract_local_ocr(image_bytes):
-    """Run several offline OCR/preprocessing passes using RapidOCR.
+    """Extract screenshot text with OCR.space, while keeping analysis local.
 
-    RapidOCR packages its OCR models, so Render does not need apt-get,
-    Tesseract, an API key, or any external OCR service.
+    Only OCR is sent to the third-party service. The SENTINEL risk engine,
+    root-word detection, scoring and situation-based advice remain in this
+    application and are not delegated to the API.
     """
     if not image_bytes:
         return ""
-    try:
-        from PIL import Image, ImageOps, ImageFilter, ImageEnhance
-        import io
 
-        global _SOCIAL_OCR_ENGINE
-        _SOCIAL_OCR_ENGINE = None
+    text, error = _ocr_space_request(image_bytes)
+    # Keep the last OCR error available to scan_screenshot without exposing
+    # implementation details in the normal successful result.
+    global _SOCIAL_OCR_LAST_ERROR
+    _SOCIAL_OCR_LAST_ERROR = error
 
-        image = Image.open(io.BytesIO(image_bytes)).convert("RGB")
-        scale = 2 if max(image.size) < 2200 else 1
-        if scale > 1:
-            image = image.resize((image.width * scale, image.height * scale))
-
-        gray = ImageOps.grayscale(image)
-        gray = ImageEnhance.Contrast(gray).enhance(1.7)
-        sharp = gray.filter(ImageFilter.SHARPEN)
-
-        candidates = (image, gray, sharp)
-        texts = []
-        for candidate in candidates:
-            out = _ocr_pass(candidate)
-            if out:
-                texts.append(out)
-
-        seen = set()
-        lines = []
-        for raw in "\n".join(texts).splitlines():
-            line = re.sub(r"\s+", " ", raw).strip()
-            if len(line) < 2:
-                continue
-            key = line.lower()
-            if key not in seen:
-                seen.add(key)
-                lines.append(line)
-        return "\n".join(lines)
-    except Exception:
+    if not text:
         return ""
+
+    seen = set()
+    lines = []
+    for raw in text.splitlines():
+        line = re.sub(r"\s+", " ", raw).strip()
+        if len(line) < 2:
+            continue
+        key = line.lower()
+        if key not in seen:
+            seen.add(key)
+            lines.append(line)
+    return "\n".join(lines)
+
+
+_SOCIAL_OCR_LAST_ERROR = ""
 
 def _normalise_social_text(text):
     text = str(text or "").lower()
@@ -979,7 +1019,18 @@ def scan_screenshot(file_or_filename):
 
     ocr_text = _extract_local_ocr(image_bytes)
     if not ocr_text:
-        return {"score": 0, "level": "LOW", "summary": "Insufficient evidence. SENTINEL could not reliably read the uploaded screenshot locally, so it will not guess whether the profile is genuine or fake.", "reasons": ["No reliable local OCR text was extracted from the screenshot."], "actions": ["Upload a clearer, higher-resolution screenshot with readable text."], "invalid": False, "confidence": "Insufficient", "evidence_quality": "Insufficient", "social_analysis": {"platform": "Unknown", "evidence_quality": "Insufficient", "visible_text": ""}}
+        error = globals().get("_SOCIAL_OCR_LAST_ERROR", "")
+        reason = "OCR service could not extract readable text from the screenshot."
+        action_list = ["Upload a clear screenshot with readable text and try again."]
+        if error:
+            reason = error
+            if "API_KEY" in error:
+                action_list.insert(0, "Set the OCR_SPACE_API_KEY environment variable in Render and redeploy.")
+            elif "HTTP 403" in error or "HTTP 401" in error:
+                action_list.insert(0, "Check that OCR_SPACE_API_KEY in Render is valid and active.")
+            elif "1 MB" in error.lower() or "size" in error.lower():
+                action_list.insert(0, "Try a smaller screenshot; SENTINEL also compresses uploads automatically.")
+        return {"score": 0, "level": "LOW", "summary": "Insufficient evidence. No authenticity verdict was made because the screenshot text could not be reliably extracted.", "reasons": [reason], "actions": list(dict.fromkeys(action_list)), "invalid": False, "confidence": "Insufficient", "evidence_quality": "Insufficient", "social_analysis": {"platform": "Unknown", "evidence_quality": "Insufficient", "visible_text": ""}, "analysis_engine": "OCR.space text extraction + SENTINEL deterministic multi-factor rules"}
 
     profile_numbers = _extract_profile_numbers(ocr_text)
     analysis = {
