@@ -478,90 +478,128 @@ def scan_message(message):
 
 
 # =========================================================
-# SCREENSHOT ANALYZER
+# SOCIAL SCREENSHOT ANALYZER — API-FREE ENGINE
 # =========================================================
-
-SOCIAL_VISION_PROMPT = r"""
-You are SENTINEL Social Analyzer, a cybersecurity screenshot analyst.
-Analyze the ACTUAL uploaded image, not the filename and not assumptions.
-Only use information visibly present in the image. Do not identify a real person.
-
-Your job is to inspect the whole screenshot and extract evidence from the TARGET
-social-media profile/page/post shown. Ignore unrelated suggested accounts,
-neighboring profiles, ads, and UI elements unless they clearly belong to the target.
-
-Return ONLY valid JSON with exactly this general structure:
-{
-  "platform":"Instagram|Facebook|X|Unknown",
-  "evidence_quality":"High|Medium|Low|Insufficient",
-  "visible_text":"all clearly readable target text",
-  "profile":{
-    "username":"","display_name":"","bio":"",
-    "followers":null,"following":null,"posts":null,
-    "verified_badge":false,"new_badge":false,
-    "fan_or_parody_label":false,"official_claim":false,
-    "default_profile_image":false,"profile_image_present":false,
-    "links":[]
-  },
-  "signals":[
-    {"category":"","signal":"","severity":"low|medium|high","evidence":""}
-  ],
-  "scam_types":[],
-  "risk_adjustments":{"positive":[],"negative":[]},
-  "summary":"",
-  "advice":[]
-}
-
-IMPORTANT RULES:
-- Read the actual screenshot carefully. Different screenshots must produce different
-  visible_text, profile evidence, signals and conclusions when their contents differ.
-- A blue verified badge is positive verification evidence, NOT a guarantee that every
-  post, message or request is safe.
-- New badge, low followers, few posts, celebrity photo, generic photo or a new-looking
-  account alone is NOT proof of fraud.
-- Fan Page, Fan, Parody, Commentary or Unofficial labels reduce impersonation concern.
-- A genuine/verified account can still be compromised or post a malicious offer.
-- Never identify the real person in a photograph.
-- Check profile identity, username, display name, bio, follower/following/post counts,
-  verification indicators, labels, links and visible activity.
-- Check visible content for giveaway/prize, romance, emergency, money, investment,
-  crypto, jobs/tasks, shopping, donation, tickets, loans/grants, gambling, tech support,
-  delivery, government/authority, credentials, OTP, KYC, payment, QR/UPI, urgency,
-  threats, secrecy, off-platform contact, fake support and impersonation.
-- Check visible URLs for shortened links, look-alike domains, typosquatting,
-  unrelated domains and suspicious login/payment/registration destinations.
-- A celebrity name/photo plus a money request, suspicious link or urgent claim can be
-  an impersonation/compromise signal. The photo alone cannot establish fraud.
-- Giveaway/job/investment/shopping/romance language alone does not prove a scam.
-  Strong combinations should increase risk substantially.
-- If information is cropped, blurred or unreadable, mark it unavailable instead of guessing.
-"""
+# This module intentionally uses ONLY the uploaded screenshot + local OCR.
+# No OpenAI/API/network call is required for Social Analyzer.
 
 SOCIAL_ROOT_GROUPS = {
-    "giveaway":{"words":["giveaway","give away","you won","winner","prize","lucky draw","free gift","reward","claim prize","claim now","congratulations","selected winner","iphone giveaway","free iphone","free phone","coupon","voucher","free ps5","free laptop"],"score":24,"type":"Giveaway / prize risk","tip":"Do not use or proceed with a prize claim that asks for money or sensitive information. Verify the giveaway through the brand's official source."},
-    "romance":{"words":["love","lover","relationship","soulmate","boyfriend","girlfriend","fiancé","fiance","husband","wife","dating","romance","marry me","marriage","sweetheart","baby","darling","miss you","trust me","lonely","long distance"],"score":8,"type":"Romance / relationship risk","tip":"Do not send money, gifts, crypto or financial details to an online romantic contact without independent verification."},
-    "romance_money":{"words":["send money","need money","borrow money","gift card","emergency","hospital","accident","stranded","help me financially","pay my bill","medical emergency","family emergency"],"score":34,"type":"Romance / emotional-money risk","tip":"Do not send money or gift cards because of an online relationship or emergency story. Verify independently first."},
-    "investment":{"words":["investment","invest now","guaranteed return","guaranteed profit","guaranteed returns","profit","returns","double money","triple money","passive income","forex","trading signals","crypto","bitcoin","ethereum","usdt","mining","money flip","flip money","100% profit","risk free investment","no risk"],"score":34,"type":"Investment / financial risk","tip":"Do not transfer money or crypto based on guaranteed-profit claims. Verify the company and offer independently."},
-    "job":{"words":["job offer","work from home","work-from-home","part time job","part-time","hiring","vacancy","recruitment","earn money","easy income","daily income","task job","online task","like and earn","review and earn","apply now","limited slots","training fee","registration fee","job registration","data entry"],"score":25,"type":"Job / task risk","tip":"Do not pay a registration, training or deposit fee to receive a job. Verify the employer independently."},
-    "payment":{"words":["send money","pay now","payment","pay","processing fee","shipping fee","registration fee","advance fee","deposit","recharge","withdraw","unlock payment","upi","upi id","bank account","bank details","card number","credit card","debit card","cvv","gift card","payment link","qr code","scan qr","transfer money"],"score":38,"type":"Payment / financial risk","tip":"Do not send money or share UPI PIN, banking, card or payment credentials. Verify the recipient and request independently."},
-    "credentials":{"words":["otp","one time password","verification code","password","passcode","pin","upi pin","login","sign in","username","credentials","kyc","verify account","account verification","verify your account","reset password","recover account","security code","authentication code","login details"],"score":48,"type":"Credential / phishing risk","tip":"Do not share OTPs, passwords, PINs or login codes. Open the official app/site yourself instead of using a suspicious link."},
-    "phishing":{"words":["bit.ly","tinyurl","goo.gl","t.co/","shorturl","click here","click the link","login here","verify here","registration link","claim link","download now","open this link","tap here","link in bio"],"score":28,"type":"Suspicious link / phishing risk","tip":"Do not open an unfamiliar link. Check the exact destination domain independently before entering information."},
-    "urgency":{"words":["urgent","immediately","act now","hurry","limited time","last chance","expires today","within 24 hours","don't wait","do it now","final warning","account will be blocked","account suspended","only today","claim fast"],"score":20,"type":"Social-engineering pressure","tip":"Do not let urgency force a decision. Pause and verify through an independent official channel."},
-    "impersonation":{"words":["official","customer support","customer care","support team","admin","administrator","ceo","founder","police","government","bank support","instagram support","facebook support","x support","recovery team","account recovery","help center"],"score":22,"type":"Possible impersonation / fake-support risk","tip":"Verify the identity through the organization's official website or app. Do not trust a support claim just because the profile looks official."},
-    "shopping":{"words":["huge discount","massive discount","clearance sale","limited stock","only today","cheap price","lowest price","50% off","70% off","90% off","brand new","pre order","advance payment","cash on delivery","mega sale","flash sale"],"score":22,"type":"Shopping / fake-store risk","tip":"Verify the seller, domain, reviews and payment method independently. Avoid advance payment to an unknown seller."},
-    "donation":{"words":["donate","donation","fundraiser","medical emergency","medical help","relief fund","charity","help this family","help the child","crowdfunding"],"score":18,"type":"Donation / charity risk","tip":"Verify the charity or beneficiary independently before donating. Do not rely only on a social-media post or DM."},
-    "tickets":{"words":["concert ticket","concert tickets","event ticket","vip pass","tickets available","booking","reservation","flight ticket","movie ticket","free ticket","sold out tickets"],"score":18,"type":"Ticket / event risk","tip":"Buy tickets only through official or trusted platforms. Avoid advance transfers to unknown accounts."},
-    "loan_grant":{"words":["instant loan","easy loan","loan approved","loan offer","grant","subsidy","financial aid","scholarship","government scheme","loan processing fee","loan fee"],"score":24,"type":"Loan / grant / financial-aid risk","tip":"Verify the lender or program through its official website. Never pay an unexpected fee to unlock a loan or grant."},
-    "gambling":{"words":["jackpot","lottery","betting","bet now","casino","sports betting","guaranteed win","winning number","spin and win"],"score":24,"type":"Gambling / prize risk","tip":"Do not send money or personal information to claim winnings or guaranteed profits. Verify the service independently."},
-    "tech_support":{"words":["virus detected","your account is hacked","device infected","technical support","remote access","anydesk","teamviewer","support number","call immediately","security alert"],"score":35,"type":"Tech-support scam risk","tip":"Do not install remote-access software or call an unexpected support number. Use the official support page instead."},
-    "delivery":{"words":["parcel","package","courier","delivery failed","customs fee","delivery fee","shipment","reschedule delivery","delivery charge"],"score":24,"type":"Delivery / parcel risk","tip":"Verify delivery messages through the courier's official website or app. Do not pay unexpected fees through social-media links."},
-    "government":{"words":["income tax","tax notice","police notice","court notice","legal action","arrest warrant","aadhaar","pan card","government notice","fine","penalty"],"score":28,"type":"Authority impersonation risk","tip":"Do not pay or share credentials because of an unexpected authority claim. Contact the organization through an official channel."},
-    "personal_data":{"words":["aadhaar number","pan number","date of birth","address","phone number","email address","bank details","card details","identity proof","id proof","passport","driving licence"],"score":18,"type":"Personal-data collection risk","tip":"Avoid sharing identity, banking or other sensitive personal information with an unverified account."},
-    "off_platform":{"words":["whatsapp","telegram","dm me","message me privately","contact me privately","move to whatsapp","move to telegram","send me a dm","contact privately"],"score":12,"type":"Off-platform social-engineering signal","tip":"Be cautious when an unknown account quickly moves you to WhatsApp or Telegram. Verify the identity independently."},
-    "secrecy_threat":{"words":["keep this secret","don't tell anyone","do not tell anyone","confidential","you will be arrested","police will arrest","account will be deleted","you will lose access","don't tell my family"],"score":28,"type":"Threat / secrecy social engineering","tip":"Do not act under threats or secrecy pressure. Stop and verify the claim independently."},
-    "fake_news":{"words":["breaking news","shocking news","100% confirmed","viral news","share immediately","forward this","government confirmed","secret news","breaking"],"score":12,"type":"Potential misinformation / engagement bait","tip":"Verify sensational claims with reputable sources before sharing or acting on them."},
-    "business_opportunity":{"words":["franchise","dealership","reseller","business opportunity","passive income","earn from home","investment opportunity","guaranteed business","be your own boss","distributor"],"score":20,"type":"Business-opportunity risk","tip":"Verify the company, terms and financial claims independently. Avoid upfront payments for unverified opportunities."},
-    "romance_offplatform":{"words":["whatsapp number","telegram id","private chat","secret relationship","don't tell my family"],"score":18,"type":"Romance social-engineering signal","tip":"Be cautious if an online relationship quickly becomes secretive or moves off-platform. Do not send money or sensitive information."}
+    "giveaway": {
+        "words": ["giveaway", "give away", "winner", "you won", "prize", "lucky draw", "free gift", "free iphone", "free phone", "iphone giveaway", "reward", "coupon", "voucher", "claim prize", "claim now", "congratulations", "selected winner", "selected for prize", "gift hamper"],
+        "score": 24, "type": "Giveaway / prize signal", "tip": "Do not pay a processing, shipping, registration or claiming fee for a prize. Verify the giveaway through the brand's official channel."
+    },
+    "romance": {
+        "words": ["love", "lover", "relationship", "soulmate", "boyfriend", "girlfriend", "fiance", "fiancé", "husband", "wife", "dating", "romance", "marry me", "marriage", "sweetheart", "baby", "darling", "miss you", "trust me", "lonely", "long distance", "true love", "future together"],
+        "score": 8, "type": "Romance / relationship signal", "tip": "Do not send money, gifts, crypto or financial information to an online romantic contact without independent real-world verification."
+    },
+    "romance_money": {
+        "words": ["send money", "need money", "borrow money", "help me financially", "gift card", "emergency", "hospital", "accident", "stranded", "pay my bill", "medical emergency", "urgent help", "family problem", "funeral", "travel emergency"],
+        "score": 34, "type": "Romance / emotional-money risk", "tip": "Do not send money or gift cards because of an online relationship or emergency story. Verify the person independently first."
+    },
+    "investment": {
+        "words": ["investment", "invest now", "guaranteed return", "guaranteed profit", "guaranteed returns", "profit", "returns", "double money", "triple money", "passive income", "forex", "trading", "trading signals", "crypto", "bitcoin", "ethereum", "usdt", "mining", "money flip", "flip money", "100% profit", "risk free investment", "risk-free investment", "daily profit", "fixed return", "instant profit"],
+        "score": 38, "type": "Investment / financial scam signal", "tip": "Do not transfer money or crypto based on guaranteed-profit claims. Verify the company, platform and offer independently using trusted sources."
+    },
+    "job": {
+        "words": ["job offer", "work from home", "work-from-home", "part time job", "part-time", "hiring", "vacancy", "recruitment", "recruiter", "earn money", "easy income", "daily income", "task job", "online task", "like and earn", "review and earn", "apply now", "limited slots", "training fee", "registration fee", "job registration", "joining fee", "security deposit for job", "salary"],
+        "score": 26, "type": "Job / task scam signal", "tip": "Never pay a registration, training, joining or deposit fee to receive a job. Verify the employer through its official website and recruitment channel."
+    },
+    "payment": {
+        "words": ["send money", "pay now", "payment", "processing fee", "shipping fee", "registration fee", "advance fee", "deposit", "recharge", "withdraw", "unlock payment", "upi", "upi id", "bank account", "bank details", "card number", "credit card", "debit card", "cvv", "gift card", "payment link", "qr code", "scan qr", "paytm", "phonepe", "google pay", "gpay", "transfer money", "wire transfer", "advance payment", "pay first", "pay to claim"],
+        "score": 42, "type": "Payment / financial-risk signal", "tip": "Do not send money or share UPI PIN, banking, card or payment credentials. Independently verify the recipient and request."
+    },
+    "credentials": {
+        "words": ["otp", "one time password", "verification code", "password", "passcode", "pin", "upi pin", "login", "sign in", "username", "credentials", "kyc", "verify account", "account verification", "verify your account", "reset password", "recover account", "security code", "authentication code", "login details", "secret code", "verification link", "enter otp", "share otp"],
+        "score": 50, "type": "Credential / phishing signal", "tip": "Do not share OTPs, passwords, PINs or login codes. Open the official app/site yourself instead of using a suspicious link."
+    },
+    "phishing": {
+        "words": ["bit.ly", "tinyurl", "goo.gl", "t.co/", "shorturl", "click here", "click the link", "login here", "verify here", "registration link", "claim link", "download now", "open this link", "link in bio", "tap here", "swipe up", "visit this link", "sign in here"],
+        "score": 30, "type": "Suspicious link / phishing signal", "tip": "Do not open an unfamiliar link. Check the exact destination domain independently before entering any information."
+    },
+    "urgency": {
+        "words": ["urgent", "immediately", "act now", "hurry", "limited time", "last chance", "expires today", "within 24 hours", "don't wait", "do it now", "final warning", "account will be blocked", "account suspended", "respond now", "only today", "offer ends", "deadline", "right now", "immediate action"],
+        "score": 22, "type": "Urgency / social-engineering signal", "tip": "Do not let urgency force a decision. Pause and verify the request through an independent official channel."
+    },
+    "impersonation": {
+        "words": ["official", "customer support", "customer care", "support team", "admin", "administrator", "ceo", "founder", "police", "government", "bank support", "instagram support", "facebook support", "x support", "recovery team", "account recovery", "security team", "help desk", "official account", "official support"],
+        "score": 24, "type": "Possible impersonation / fake-support signal", "tip": "Verify the identity through the organization's official website or app. Do not trust a support claim just because the profile looks official."
+    },
+    "shopping": {
+        "words": ["huge discount", "massive discount", "clearance sale", "limited stock", "only today", "cheap price", "lowest price", "50% off", "70% off", "80% off", "90% off", "brand new", "pre order", "pre-order", "advance payment", "cash on delivery", "flash sale", "mega sale", "exclusive offer", "limited offer"],
+        "score": 22, "type": "Shopping / fake-store signal", "tip": "Check the seller, exact website, reviews and payment method independently. Avoid advance payment to an unknown seller."
+    },
+    "donation": {
+        "words": ["donate", "donation", "fundraiser", "medical emergency", "medical help", "relief fund", "charity", "help this family", "help the child", "crowdfunding", "donate now", "support this cause"],
+        "score": 20, "type": "Donation / charity signal", "tip": "Verify the charity or beneficiary independently before donating. Do not rely only on a social-media post or DM."
+    },
+    "tickets": {
+        "words": ["concert ticket", "concert tickets", "event ticket", "event tickets", "vip pass", "tickets available", "booking", "reservation", "flight ticket", "movie ticket", "free ticket", "early bird ticket", "event registration"],
+        "score": 18, "type": "Ticket / event signal", "tip": "Buy tickets only through official or trusted platforms. Avoid advance transfers to unknown accounts."
+    },
+    "loan_grant": {
+        "words": ["instant loan", "easy loan", "loan approved", "loan offer", "grant", "subsidy", "financial aid", "scholarship", "government scheme", "loan processing fee", "loan fee", "approval fee", "loan deposit", "scholarship fee"],
+        "score": 26, "type": "Loan / grant / financial-aid signal", "tip": "Verify the lender or program through its official website. Never pay an unexpected fee to unlock a loan, grant or scholarship."
+    },
+    "gambling": {
+        "words": ["jackpot", "lottery", "betting", "bet now", "casino", "sports betting", "guaranteed win", "winning number", "spin and win", "jackpot winner", "lottery winner"],
+        "score": 26, "type": "Lottery / gambling signal", "tip": "Do not send money or personal information to claim winnings or guaranteed profits. Verify the service independently."
+    },
+    "tech_support": {
+        "words": ["virus detected", "your account is hacked", "device infected", "technical support", "remote access", "anydesk", "teamviewer", "support number", "call immediately", "security alert", "computer infected", "malware detected"],
+        "score": 38, "type": "Tech-support scam signal", "tip": "Do not install remote-access software or call an unexpected support number. Use the official support page instead."
+    },
+    "delivery": {
+        "words": ["parcel", "package", "courier", "delivery failed", "customs fee", "delivery fee", "shipment", "reschedule delivery", "delivery charge", "address confirmation", "missed package"],
+        "score": 26, "type": "Delivery / parcel signal", "tip": "Verify delivery messages through the courier's official website or app. Do not pay unexpected fees through social-media links."
+    },
+    "government": {
+        "words": ["income tax", "tax notice", "police notice", "court notice", "legal action", "arrest warrant", "aadhaar", "aadhar", "pan card", "government notice", "fine", "penalty", "court case", "police case", "legal notice", "tax penalty"],
+        "score": 30, "type": "Authority impersonation signal", "tip": "Do not pay or share credentials because of an unexpected authority claim. Contact the organization using an official channel."
+    },
+    "personal_data": {
+        "words": ["aadhaar number", "aadhar number", "pan number", "date of birth", "address", "phone number", "email address", "bank details", "card details", "identity proof", "id proof", "passport", "driving licence", "driver license", "selfie with id", "personal details"],
+        "score": 20, "type": "Personal-data collection signal", "tip": "Avoid sharing identity, banking or other sensitive personal information with an unverified account."
+    },
+    "off_platform": {
+        "words": ["whatsapp", "telegram", "dm me", "message me privately", "contact me privately", "move to whatsapp", "move to telegram", "send me a dm", "chat privately", "private message", "call me", "contact me"],
+        "score": 14, "type": "Off-platform contact signal", "tip": "Be cautious when an unknown account quickly moves you to WhatsApp, Telegram or private contact. Verify the identity independently."
+    },
+    "secrecy_threat": {
+        "words": ["keep this secret", "don't tell anyone", "do not tell anyone", "confidential", "you will be arrested", "police will arrest", "account will be deleted", "you will lose access", "nobody should know", "secret", "legal action", "arrested", "blocked permanently"],
+        "score": 30, "type": "Threat / secrecy social-engineering signal", "tip": "Do not act under threats or secrecy pressure. Stop and verify the claim independently."
+    },
+    "fake_news": {
+        "words": ["breaking news", "shocking news", "100% confirmed", "viral news", "share immediately", "forward this", "government confirmed", "secret news", "must share", "confirmed news", "exclusive breaking"],
+        "score": 12, "type": "Potential misinformation / engagement-bait signal", "tip": "Verify sensational claims with reputable sources before sharing or acting on them."
+    },
+    "business_opportunity": {
+        "words": ["franchise", "dealership", "reseller", "business opportunity", "passive income", "earn from home", "investment opportunity", "guaranteed business", "be your own boss", "business offer", "reselling opportunity"],
+        "score": 22, "type": "Business-opportunity signal", "tip": "Verify the company, terms and financial claims independently. Avoid upfront payments for unverified opportunities."
+    },
+    "money_flip_task": {
+        "words": ["deposit", "unlock", "withdraw", "recharge", "commission", "task completion", "complete tasks", "level up", "withdrawal fee", "unlock withdrawal", "recharge account", "commission earned", "task commission"],
+        "score": 34, "type": "Money-flipping / task scam signal", "tip": "Do not deposit or recharge money to unlock tasks, commissions or withdrawals. Stop if the platform demands more money to release your balance."
+    },
+    "friend_family": {
+        "words": ["new number", "new phone number", "my new number", "this is my new number", "send money", "emergency", "don't call", "lost my phone", "phone broken", "stranded"],
+        "score": 30, "type": "Friend/family impersonation signal", "tip": "Do not send money to a claimed friend or family member based only on a message. Call their known number or verify through another trusted channel."
+    },
+    "matrimonial": {
+        "words": ["marriage proposal", "matrimony", "wedding", "marry", "marriage proposal", "wedding expenses", "dowry"],
+        "score": 12, "type": "Matrimonial signal", "tip": "Verify identity and family/background independently before sharing money or sensitive documents."
+    },
+    "travel": {
+        "words": ["visa", "passport", "cheap flight", "flight offer", "hotel booking", "hotel deal", "travel package", "tour package", "visa fee", "immigration"],
+        "score": 18, "type": "Travel / booking signal", "tip": "Verify travel, visa and booking offers through the official provider. Avoid advance payment to unknown accounts."
+    },
+    "property_rental": {
+        "words": ["house rent", "rent", "rental", "property deal", "flat for rent", "apartment for rent", "security deposit", "advance rent", "property booking"],
+        "score": 18, "type": "Rental / property signal", "tip": "Verify the property, owner and agreement independently. Do not transfer an advance or deposit before verification."
+    },
+    "too_good": {
+        "words": ["free", "guaranteed", "instant", "unbelievable", "100% profit", "double your money", "get rich quick", "no risk", "zero risk", "easy money", "fast money"],
+        "score": 14, "type": "Too-good-to-be-true signal", "tip": "Treat unusually easy or guaranteed benefits as a warning sign and verify the claim independently."
+    }
 }
 
 
@@ -580,200 +618,82 @@ def _read_uploaded_image(file):
         file.stream.seek(0)
     except Exception:
         pass
-    if len(data) > 12 * 1024 * 1024:
+    if not data or len(data) > 12 * 1024 * 1024:
         return b""
     return data
 
 
-def _image_mime(file):
-    mime = str(getattr(file, "mimetype", "") or "").lower().strip()
-    if mime in {"image/png", "image/jpeg", "image/jpg", "image/webp", "image/gif"}:
-        return "image/jpeg" if mime == "image/jpg" else mime
-    name = str(getattr(file, "filename", "") or "").lower()
-    if name.endswith(".png"):
-        return "image/png"
-    if name.endswith(".webp"):
-        return "image/webp"
-    if name.endswith(".gif"):
-        return "image/gif"
-    return "image/jpeg"
-
-
-def _extract_local_ocr(image_bytes):
-    if not image_bytes:
-        return ""
+def _ocr_pass(image, config):
     try:
-        from PIL import Image
         import pytesseract
-        with Image.open(__import__("io").BytesIO(image_bytes)) as image:
-            image = image.convert("RGB")
-            return str(pytesseract.image_to_string(image) or "").strip()
+        value = pytesseract.image_to_string(image, config=config)
+        return str(value or "").strip()
     except Exception:
         return ""
 
 
-def _vision_api_analysis(image_bytes, mime_type="image/jpeg"):
-    """Analyze the actual uploaded screenshot with a vision-capable OpenAI model.
+def _extract_local_ocr(image_bytes):
+    """Run several local OCR passes. No network/API is used."""
+    if not image_bytes:
+        return ""
+    try:
+        from PIL import Image, ImageOps, ImageFilter, ImageEnhance
+        import io
+        image = Image.open(io.BytesIO(image_bytes)).convert("RGB")
+        # Upscaling helps screenshots with small UI fonts.
+        scale = 2 if max(image.size) < 2200 else 1
+        if scale > 1:
+            image = image.resize((image.width * scale, image.height * scale))
+        gray = ImageOps.grayscale(image)
+        gray = ImageEnhance.Contrast(gray).enhance(1.7)
+        sharp = gray.filter(ImageFilter.SHARPEN)
 
-    This intentionally uses two API attempts: JSON mode first, then a plain-text
-    JSON response fallback. That makes the analyzer resilient to model/endpoint
-    differences while keeping the screenshot itself as the source of truth.
-    """
-    api_key = os.environ.get("SENTINEL_VISION_API_KEY") or os.environ.get("OPENAI_API_KEY")
-    if not api_key or not image_bytes:
-        return None, "Vision API key or image data is unavailable."
+        texts = []
+        for candidate in (image, gray, sharp):
+            for config in ("--psm 6", "--psm 11", "--psm 12"):
+                out = _ocr_pass(candidate, config)
+                if out:
+                    texts.append(out)
 
-    endpoint = os.environ.get("SENTINEL_VISION_API_URL", "https://api.openai.com/v1/chat/completions")
-    configured_model = os.environ.get("SENTINEL_VISION_MODEL", "gpt-4o-mini").strip()
-    models = [configured_model]
-    # Safe fallback if a custom Render model name is invalid/unavailable.
-    for fallback in ("gpt-4o-mini", "gpt-4.1-mini"):
-        if fallback not in models:
-            models.append(fallback)
-
-    encoded = base64.b64encode(image_bytes).decode("ascii")
-    data_url = "data:" + mime_type + ";base64," + encoded
-    user_text = (
-        "Analyze THIS uploaded screenshot itself. Do not use the filename and do not invent "
-        "details that are not visible. Identify the platform/profile/page, visible text, "
-        "verification/new/fan/parody labels, links, money/payment requests, credentials, "
-        "urgency, impersonation, scam patterns, and evidence quality. Return ONLY valid JSON."
-    )
-
-    last_error = None
-    from urllib.request import Request, urlopen
-    from urllib.error import HTTPError, URLError
-
-    for model in models:
-        for json_mode in (True, False):
-            payload = {
-                "model": model,
-                "temperature": 0,
-                "max_tokens": 4500,
-                "messages": [
-                    {"role": "system", "content": SOCIAL_VISION_PROMPT},
-                    {"role": "user", "content": [
-                        {"type": "text", "text": user_text},
-                        {"type": "image_url", "image_url": {"url": data_url, "detail": "high"}}
-                    ]}
-                ]
-            }
-            if json_mode:
-                payload["response_format"] = {"type": "json_object"}
-
-            try:
-                req = Request(
-                    endpoint,
-                    data=json.dumps(payload).encode("utf-8"),
-                    headers={
-                        "Content-Type": "application/json",
-                        "Authorization": "Bearer " + api_key
-                    },
-                    method="POST"
-                )
-                with urlopen(req, timeout=75) as response:
-                    raw = response.read().decode("utf-8")
-                data = json.loads(raw)
-                content = data.get("choices", [{}])[0].get("message", {}).get("content", "")
-                if isinstance(content, list):
-                    content = "".join(
-                        part.get("text", "") for part in content if isinstance(part, dict)
-                    )
-                content = str(content or "").strip()
-                content = re.sub(r"^```(?:json)?\s*|\s*```$", "", content, flags=re.I).strip()
-                parsed = json.loads(content)
-                if isinstance(parsed, dict):
-                    parsed["vision_model"] = model
-                    parsed["vision_api"] = "OpenAI"
-                    return parsed, None
-                last_error = "Vision API returned a non-object JSON response."
-            except HTTPError as exc:
-                try:
-                    body = exc.read().decode("utf-8", errors="ignore")
-                    err = json.loads(body).get("error", {}).get("message", body)
-                except Exception:
-                    err = str(exc)
-                last_error = f"HTTP {exc.code}: {str(err)[:220]}"
-                # Try the next compatible mode/model rather than failing immediately.
-            except URLError as exc:
-                last_error = "Network error reaching Vision API: " + str(exc.reason)[:180]
-            except Exception as exc:
-                last_error = "Vision API parse/request error: " + str(exc).strip().replace("\n", " ")[:200]
-
-    return None, (last_error or "Vision API analysis failed.")
+        # Deduplicate lines while retaining OCR order.
+        seen = set()
+        lines = []
+        for raw in "\n".join(texts).splitlines():
+            line = re.sub(r"\s+", " ", raw).strip()
+            if len(line) < 2:
+                continue
+            key = line.lower()
+            if key not in seen:
+                seen.add(key)
+                lines.append(line)
+        return "\n".join(lines)
+    except Exception:
+        return ""
 
 
-def _normalise_social_analysis(data):
-    if not isinstance(data, dict):
-        data = {}
-    data.setdefault("platform", "Unknown")
-    data.setdefault("evidence_quality", "Insufficient")
-    data.setdefault("visible_text", "")
-    data.setdefault("profile", {})
-    data.setdefault("signals", [])
-    data.setdefault("scam_types", [])
-    data.setdefault("risk_adjustments", {})
-    data.setdefault("summary", "")
-    data.setdefault("advice", [])
-
-    if not isinstance(data["profile"], dict):
-        data["profile"] = {}
-    p = data["profile"]
-    for key in ["username", "display_name", "bio", "links"]:
-        p.setdefault(key, "" if key != "links" else [])
-    for key in ["followers", "following", "posts"]:
-        p.setdefault(key, None)
-    for key in ["verified_badge", "new_badge", "fan_or_parody_label", "official_claim", "default_profile_image", "profile_image_present"]:
-        p.setdefault(key, False)
-
-    if not isinstance(data["signals"], list):
-        data["signals"] = []
-    if not isinstance(data["scam_types"], list):
-        data["scam_types"] = []
-    if not isinstance(data["risk_adjustments"], dict):
-        data["risk_adjustments"] = {}
-    data["risk_adjustments"].setdefault("positive", [])
-    data["risk_adjustments"].setdefault("negative", [])
-    if not isinstance(data["advice"], list):
-        data["advice"] = []
-    return data
-
-
-def _social_visible_text(analysis):
-    p = analysis.get("profile", {})
-    parts = [
-        analysis.get("visible_text", ""),
-        p.get("username", ""),
-        p.get("display_name", ""),
-        p.get("bio", "")
-    ]
-    links = p.get("links", [])
-    if isinstance(links, list):
-        parts.extend(str(x) for x in links)
-    else:
-        parts.append(str(links))
-    for item in analysis.get("signals", []):
-        if isinstance(item, dict):
-            parts.extend([item.get("signal", ""), item.get("evidence", "")])
-    return " ".join(str(x) for x in parts if x).lower()
-
-
-def _add_social_signal(signals, category, signal, severity, evidence):
-    signals.append({
-        "category": category,
-        "signal": signal,
-        "severity": severity,
-        "evidence": evidence
-    })
+def _normalise_social_text(text):
+    text = str(text or "").lower()
+    replacements = {
+        "0tp": "otp", "ot p": "otp", "u pi": "upi", "ky c": "kyc",
+        "whats app": "whatsapp", "tele gram": "telegram", "bit . ly": "bit.ly",
+        "t co /": "t.co/", "pay tm": "paytm", "phone pe": "phonepe",
+        "google pay": "google pay", "pass word": "password", "log in": "login",
+    }
+    for a, b in replacements.items():
+        text = text.replace(a, b)
+    return re.sub(r"\s+", " ", text).strip()
 
 
 def _keyword_hits(text, words):
+    text = _normalise_social_text(text)
     hits = []
     for word in words:
-        w = str(word).lower().strip()
+        w = _normalise_social_text(word)
         if not w:
             continue
-        pattern = r"(?<![a-z0-9])" + r"\s+".join(re.escape(x) for x in re.split(r"\s+", w)) + r"(?![a-z0-9])"
+        # OCR-friendly matching: tolerate spaces/punctuation between phrase tokens.
+        tokens = [re.escape(x) for x in re.split(r"\s+", w) if x]
+        pattern = r"(?<![a-z0-9])" + r"\W*".join(tokens) + r"(?![a-z0-9])"
         if re.search(pattern, text, re.I):
             hits.append(word)
     return hits
@@ -783,104 +703,140 @@ def _extract_profile_numbers(text):
     text = str(text or "")
     result = {"followers": None, "following": None, "posts": None}
     patterns = {
-        "followers": [r"([\d,.]+)\s*(?:followers|follower)\b"],
-        "following": [r"([\d,.]+)\s*(?:following)\b"],
-        "posts": [r"([\d,.]+)\s*(?:posts|post)\b"]
+        "followers": [r"([\d,.]+\s*[kKmMbB]?)\s*(?:followers|follower)\b"],
+        "following": [r"([\d,.]+\s*[kKmMbB]?)\s*(?:following)\b"],
+        "posts": [r"([\d,.]+\s*[kKmMbB]?)\s*(?:posts|post)\b"],
     }
     for field, pats in patterns.items():
         for pattern in pats:
             m = re.search(pattern, text, re.I)
-            if m:
-                try:
-                    result[field] = int(float(m.group(1).replace(",", "")))
-                    break
-                except ValueError:
-                    pass
+            if not m:
+                continue
+            raw = m.group(1).replace(",", "").strip().lower()
+            multiplier = 1
+            if raw.endswith("k"):
+                multiplier, raw = 1000, raw[:-1]
+            elif raw.endswith("m"):
+                multiplier, raw = 1000000, raw[:-1]
+            elif raw.endswith("b"):
+                multiplier, raw = 1000000000, raw[:-1]
+            try:
+                result[field] = int(float(raw) * multiplier)
+            except ValueError:
+                pass
+            break
     return result
 
 
+def _detect_platform(text):
+    low = _normalise_social_text(text)
+    if "instagram" in low or "followers" in low and "following" in low and "posts" in low:
+        return "Instagram"
+    if "facebook" in low or "friends" in low and "followers" in low:
+        return "Facebook"
+    if "twitter" in low or re.search(r"(^|\W)x(\W|$)", low) or "reposts" in low:
+        return "X"
+    return "Unknown"
+
+
+def _detect_urls(text):
+    raw = str(text or "")
+    urls = re.findall(r"(?:https?://|www\.)[^\s<>()]+|\b[a-z0-9][a-z0-9.-]+\.(?:com|in|org|net|co|io|app|top|click|xyz|shop|win|vip|live|site|online)(?:/[^\s<>()]*)?", raw, re.I)
+    return list(dict.fromkeys(urls))
+
+
+def _social_signal(signals, category, signal, severity, evidence):
+    signals.append({"category": category, "signal": signal, "severity": severity, "evidence": evidence})
+
+
 def _apply_root_intelligence(analysis):
-    analysis = _normalise_social_analysis(analysis)
-    text = _social_visible_text(analysis)
+    text = _normalise_social_text(analysis.get("visible_text", ""))
+    p = analysis.get("profile", {}) if isinstance(analysis.get("profile"), dict) else {}
     signals = [x for x in analysis.get("signals", []) if isinstance(x, dict)]
     scam_types = list(analysis.get("scam_types", []))
     advice = list(analysis.get("advice", []))
-    positive = list(analysis.get("risk_adjustments", {}).get("positive", []))
-    negative = list(analysis.get("risk_adjustments", {}).get("negative", []))
     detected = {}
 
     for category, info in SOCIAL_ROOT_GROUPS.items():
         hits = _keyword_hits(text, info["words"])
         if hits:
             detected[category] = hits
-            severity = "high" if info["score"] >= 32 else ("medium" if info["score"] >= 18 else "low")
-            _add_social_signal(signals, category, info["type"], severity, "Visible screenshot signals: " + ", ".join(hits[:8]))
+            sev = "high" if info["score"] >= 34 else ("medium" if info["score"] >= 18 else "low")
+            _social_signal(signals, category, info["type"], sev, "Visible screenshot text: " + ", ".join(hits[:10]))
             if info["type"] not in scam_types:
                 scam_types.append(info["type"])
             advice.append(info["tip"])
 
-    combo_rules = [
-        ({"romance", "romance_money"}, 30, "Romance + money/emergency request", "Relationship/emotional language is combined with a financial or emergency request."),
-        ({"romance", "off_platform"}, 14, "Romance + off-platform contact", "Relationship language is combined with a private/off-platform contact request."),
-        ({"giveaway", "payment"}, 30, "Giveaway + payment request", "A prize/giveaway is combined with a payment or fee request."),
+    # High-confidence combinations. These are deliberately stronger than single words.
+    combos = [
+        ({"romance", "romance_money"}, 32, "Romance + emergency/money request", "Relationship language is combined with an emotional emergency or financial request."),
+        ({"romance", "off_platform"}, 14, "Romance + off-platform contact", "Relationship language is combined with private/off-platform contact."),
+        ({"romance", "investment"}, 28, "Romance + investment pitch", "Relationship language is combined with an investment or profit opportunity."),
+        ({"giveaway", "payment"}, 30, "Giveaway + payment request", "A prize/giveaway is combined with a fee or payment request."),
         ({"giveaway", "credentials"}, 38, "Giveaway + credential request", "A prize/giveaway is combined with OTP/password/account-verification language."),
-        ({"giveaway", "phishing"}, 28, "Giveaway + suspicious link", "A prize/giveaway is combined with a link or claim instruction."),
-        ({"job", "payment"}, 32, "Job + fee/payment request", "Employment/task language is combined with a fee or payment request."),
-        ({"investment", "payment"}, 30, "Investment + payment request", "Investment language is combined with a request to transfer money or pay."),
-        ({"investment", "off_platform"}, 15, "Investment + private contact", "Investment language is combined with off-platform communication."),
-        ({"impersonation", "credentials"}, 32, "Impersonation + credentials", "A support/authority identity is combined with credential or verification requests."),
-        ({"impersonation", "payment"}, 34, "Impersonation + payment", "A support/authority identity is combined with a financial request."),
-        ({"impersonation", "phishing"}, 28, "Impersonation + suspicious link", "A support/authority identity is combined with a suspicious login/link request."),
-        ({"shopping", "payment"}, 24, "Shopping + payment", "A shopping offer is combined with an advance/payment request."),
-        ({"delivery", "payment"}, 28, "Delivery + payment", "A parcel/delivery claim is combined with a fee/payment request."),
-        ({"government", "payment"}, 34, "Authority + payment", "An authority/legal claim is combined with a financial request."),
-        ({"government", "credentials"}, 34, "Authority + credentials", "An authority claim is combined with identity/login information requests."),
-        ({"secrecy_threat", "payment"}, 28, "Threat + payment", "Threat/secrecy language is combined with a financial request."),
-        ({"tech_support", "credentials"}, 32, "Tech support + credentials", "Support language is combined with security/login information requests."),
-        ({"loan_grant", "payment"}, 28, "Loan/grant + fee", "A loan/grant offer is combined with a fee/payment request.")
+        ({"giveaway", "phishing"}, 28, "Giveaway + suspicious link", "A prize/giveaway is combined with a claim/click/link request."),
+        ({"job", "payment"}, 34, "Job + fee/payment request", "Employment/task language is combined with a fee, deposit or payment request."),
+        ({"job", "off_platform"}, 12, "Job + off-platform contact", "Employment language is combined with private/off-platform contact."),
+        ({"investment", "payment"}, 34, "Investment + payment request", "Investment language is combined with a request to transfer or deposit money."),
+        ({"investment", "urgency"}, 20, "Investment + urgency", "Investment language is combined with pressure to act quickly."),
+        ({"investment", "off_platform"}, 16, "Investment + private contact", "Investment language is combined with off-platform communication."),
+        ({"impersonation", "credentials"}, 34, "Impersonation + credentials", "A support/authority identity is combined with credential or verification requests."),
+        ({"impersonation", "payment"}, 36, "Impersonation + payment", "A support/authority identity is combined with a financial request."),
+        ({"impersonation", "phishing"}, 28, "Impersonation + suspicious link", "A support/authority identity is combined with a suspicious link/login request."),
+        ({"shopping", "payment"}, 26, "Shopping + advance payment", "A shopping offer is combined with an advance/payment request."),
+        ({"delivery", "payment"}, 28, "Delivery + fee/payment", "A parcel/delivery claim is combined with a fee or payment request."),
+        ({"government", "payment"}, 36, "Authority + payment", "An authority/legal claim is combined with a financial request."),
+        ({"government", "credentials"}, 36, "Authority + credentials", "An authority claim is combined with identity/login information requests."),
+        ({"secrecy_threat", "payment"}, 28, "Threat + payment", "Threat/secrecy pressure is combined with a financial request."),
+        ({"tech_support", "credentials"}, 34, "Tech support + credentials", "Support/virus language is combined with security credential requests."),
+        ({"loan_grant", "payment"}, 30, "Loan/grant + fee", "A loan/grant offer is combined with a fee or payment request."),
+        ({"money_flip_task", "payment"}, 32, "Task/money-flip + payment", "A task or commission scheme is combined with deposits/recharges/payments."),
+        ({"friend_family", "payment"}, 34, "Friend/family impersonation + payment", "A claimed friend/family emergency is combined with a money request."),
+        ({"travel", "payment"}, 24, "Travel + payment", "A travel/visa/booking offer is combined with an advance payment request."),
+        ({"property_rental", "payment"}, 24, "Rental/property + payment", "A property/rental offer is combined with an advance/deposit request."),
     ]
-    for needed, points, label, evidence in combo_rules:
+    for needed, points, label, evidence in combos:
         if needed.issubset(detected):
-            _add_social_signal(signals, "combined_risk", label, "high", evidence)
-            if label not in scam_types:
-                scam_types.append(label)
-            advice.append("Do not use or proceed with this activity until the identity, offer and request are independently verified.")
+            _social_signal(signals, "combined_risk", label, "high", evidence)
+            scam_types.append(label)
+            advice.append("Do not proceed with this activity until the identity, offer, link and payment request are independently verified.")
 
-    links = analysis.get("profile", {}).get("links", [])
-    if not isinstance(links, list):
-        links = [links]
-    link_text = " ".join(str(x) for x in links).lower()
-    if link_text:
-        if re.search(r"bit\.ly|tinyurl|t\.co/|goo\.gl|shorturl", link_text):
-            _add_social_signal(signals, "links", "Shortened URL", "high", "A shortened URL is visible in the target profile evidence.")
-            advice.append("Do not open a shortened link from an unknown account; verify the destination independently.")
-        if any(x in link_text for x in (".top", ".click", ".xyz", ".win", ".vip", ".live")):
-            _add_social_signal(signals, "links", "Potentially suspicious domain pattern", "medium", "A visible link uses a domain pattern that deserves independent verification.")
+    # URL intelligence from OCR-visible text.
+    urls = _detect_urls(text)
+    suspicious_tlds = (".top", ".click", ".xyz", ".shop", ".win", ".vip", ".live", ".site", ".online")
+    for url in urls:
+        ul = url.lower()
+        if any(tld in ul for tld in suspicious_tlds):
+            _social_signal(signals, "links", "Potentially suspicious domain pattern", "medium", "Visible URL: " + url)
             advice.append("Verify the exact domain independently before opening it or entering information.")
+        if re.search(r"bit\.ly|tinyurl|goo\.gl|t\.co/|shorturl", ul):
+            _social_signal(signals, "links", "Shortened URL", "high", "Visible URL: " + url)
+            advice.append("Do not open a shortened link from an unknown account; verify its destination independently.")
+        if re.search(r"login|signin|verify|account|payment|claim|register|registration", ul):
+            _social_signal(signals, "links", "Action-oriented link destination", "medium", "Visible URL contains a login/verification/payment/claim-style path: " + url)
 
-    p = analysis.get("profile", {})
-    numbers = _extract_profile_numbers(text)
+    # Extract weak account-authenticity clues, never as proof by themselves.
+    nums = _extract_profile_numbers(text)
     for key in ("followers", "following", "posts"):
-        if p.get(key) is None and numbers.get(key) is not None:
-            p[key] = numbers[key]
+        if p.get(key) is None and nums.get(key) is not None:
+            p[key] = nums[key]
     if p.get("posts") == 0:
-        _add_social_signal(signals, "activity", "Zero posts visible", "low", "The target profile visibly shows 0 posts.")
+        _social_signal(signals, "activity", "Zero posts visible", "low", "The target profile visibly shows 0 posts.")
     if isinstance(p.get("followers"), int) and isinstance(p.get("following"), int) and p["followers"] < 20 and p["following"] > 100:
-        _add_social_signal(signals, "account_authenticity", "Unusual follower/following relationship", "low", "The visible follower count is much lower than the following count.")
+        _social_signal(signals, "account_authenticity", "Unusual follower/following relationship", "low", "Visible follower count is much lower than following count.")
     if p.get("new_badge"):
-        _add_social_signal(signals, "account_authenticity", "New-account indicator", "low", "A New indicator is visibly associated with the target profile.")
+        _social_signal(signals, "account_authenticity", "New-account indicator", "low", "A New indicator is associated with the target profile.")
     if p.get("default_profile_image"):
-        _add_social_signal(signals, "account_authenticity", "Default/generic profile image", "low", "The target profile visibly uses a default or generic profile image.")
+        _social_signal(signals, "account_authenticity", "Default/generic profile image", "low", "The target profile uses a default/generic image.")
     if p.get("fan_or_parody_label"):
-        negative.append("Fan/parody/unofficial labeling reduces impersonation concern.")
+        analysis.setdefault("risk_adjustments", {}).setdefault("negative", []).append("Fan/parody/unofficial labeling reduces impersonation concern.")
     if p.get("verified_badge"):
-        positive.append("A verified/blue badge is visibly present on the target profile.")
+        analysis.setdefault("risk_adjustments", {}).setdefault("positive", []).append("A visible verified/blue badge is a positive verification signal.")
 
+    analysis["profile"] = p
     analysis["signals"] = signals
     analysis["scam_types"] = list(dict.fromkeys(scam_types))
     analysis["advice"] = list(dict.fromkeys(advice))
-    analysis["risk_adjustments"]["positive"] = list(dict.fromkeys(positive))
-    analysis["risk_adjustments"]["negative"] = list(dict.fromkeys(negative))
     return analysis
 
 
@@ -888,125 +844,149 @@ def _social_score(analysis):
     analysis = _apply_root_intelligence(analysis)
     p = analysis.get("profile", {})
     signals = analysis.get("signals", [])
-    categories = {}
+    score = 0
     reasons = []
+    categories = set()
     for item in signals:
         if not isinstance(item, dict):
             continue
         cat = str(item.get("category", "general")).lower()
         sev = str(item.get("severity", "low")).lower()
-        pts = {"low": 4, "medium": 13, "high": 25}.get(sev, 4)
-        categories[cat] = max(categories.get(cat, 0), pts)
+        categories.add(cat)
+        pts = {"low": 3, "medium": 12, "high": 24}.get(sev, 3)
+        score += pts
         signal = str(item.get("signal", "")).strip()
         evidence = str(item.get("evidence", "")).strip()
         if signal:
             reasons.append(signal + (": " + evidence if evidence else ""))
 
-    score = sum(categories.values())
-    if p.get("posts") == 0:
-        score += 3
-    if p.get("new_badge"):
-        score += 2
-    if p.get("default_profile_image"):
-        score += 3
-    followers, following = p.get("followers"), p.get("following")
-    if isinstance(followers, int) and isinstance(following, int) and followers < 20 and following > 100:
-        score += 3
-    if p.get("verified_badge"):
-        score = max(0, score - 8)
-        reasons.append("A visible verified badge is a positive verification signal; it does not make suspicious requests safe.")
-    if p.get("fan_or_parody_label"):
-        score = max(0, score - 5)
-        reasons.append("A visible fan/parody/unofficial label reduces impersonation concern.")
+    # Avoid letting repeated OCR passes explode the score: cap each category contribution.
+    by_cat = {}
+    for item in signals:
+        if not isinstance(item, dict):
+            continue
+        cat = str(item.get("category", "general"))
+        sev = str(item.get("severity", "low")).lower()
+        pts = {"low": 3, "medium": 12, "high": 24}.get(sev, 3)
+        by_cat[cat] = min(36, by_cat.get(cat, 0) + pts)
+    score = sum(by_cat.values())
 
-    strong = set(categories)
-    if {"credentials", "phishing"}.issubset(strong): score += 18
-    if {"payment", "urgency"}.issubset(strong): score += 15
-    if {"impersonation", "payment"}.issubset(strong): score += 15
-    if {"romance", "romance_money"}.issubset(strong): score += 18
-    hard_categories = {"credentials", "payment", "investment", "romance_money", "tech_support", "government"}
-    if strong.intersection(hard_categories): score = max(score, 55)
-    if {"credentials", "payment"}.issubset(strong) or {"giveaway", "credentials"}.issubset(strong): score = max(score, 75)
-    if strong and strong.issubset({"activity", "account_authenticity"}): score = min(score, 28)
+    # Strong cross-domain combinations.
+    if {"credentials", "phishing"}.issubset(categories): score += 20
+    if {"payment", "urgency"}.issubset(categories): score += 18
+    if {"impersonation", "payment"}.issubset(categories): score += 20
+    if {"romance", "romance_money"}.issubset(categories): score += 20
+    if {"giveaway", "credentials"}.issubset(categories): score += 24
+
+    hard = {"credentials", "payment", "investment", "romance_money", "tech_support", "government", "money_flip_task"}
+    if categories.intersection(hard):
+        score = max(score, 55)
+    if {"credentials", "payment"}.issubset(categories) or {"giveaway", "credentials"}.issubset(categories):
+        score = max(score, 78)
+
+    # Weak account clues never create a strong accusation.
+    if categories and categories.issubset({"activity", "account_authenticity"}):
+        score = min(score, 25)
+
+    if p.get("verified_badge"):
+        score = max(0, score - 10)
+        reasons.append("A visible verified badge is a positive credibility signal; it does not make suspicious requests safe.")
+    if p.get("fan_or_parody_label"):
+        score = max(0, score - 6)
+        reasons.append("A visible fan/parody/unofficial label reduces impersonation concern.")
     return min(100, int(score)), list(dict.fromkeys(reasons)), analysis
 
 
 def _social_advice(score, analysis):
     advice = list(analysis.get("advice", []))
     p = analysis.get("profile", {})
+    categories = {str(x.get("category", "")).lower() for x in analysis.get("signals", []) if isinstance(x, dict)}
+
     if score >= 80:
-        advice.insert(0, "🚫 Do not use, click, pay, reply to, or provide sensitive information to the suspicious activity shown in this screenshot. Verify through an official/trusted source first.")
+        advice.insert(0, "🚫 Do not use or proceed with the suspicious activity shown. Do not click suspicious links, send money, or share OTP/password/PIN/KYC/bank/card/UPI details.")
     elif score >= 60:
-        advice.insert(0, "⚠️ Do not proceed with the suspicious activity shown until the account, link and request are independently verified.")
+        advice.insert(0, "⚠️ Do not proceed with the suspicious activity shown until the account, link and request are independently verified through an official/trusted source.")
     elif score >= 35:
-        advice.insert(0, "🛡️ Be cautious with the activity shown. Verify the account and request independently before sharing information, clicking links or sending money.")
+        advice.insert(0, "🛡️ Be cautious with the activity shown. Verify the account and request independently before clicking links, sharing information or sending money.")
     elif p.get("verified_badge"):
-        advice.insert(0, "🔵 The profile appears verified based on the visible badge. Still verify any unusual money, link or credential request separately.")
+        advice.insert(0, "🔵 Verified Profile Detected — the visible badge is a strong positive verification signal, but it is not an absolute guarantee. Verify unusual money, link or credential requests separately.")
     else:
-        advice.insert(0, "🛡️ No major combined-risk pattern was detected from the visible screenshot evidence. Still verify unexpected requests before sharing sensitive information.")
+        advice.insert(0, "🛡️ No strong combined-risk pattern was detected from the readable screenshot evidence. This does not prove the account is genuine; verify unexpected requests before acting.")
+
+    if "credentials" in categories:
+        advice.append("Never share an OTP, password, PIN or verification code with a person who contacts you through social media.")
+    if "payment" in categories:
+        advice.append("Do not send money or make an advance payment until the recipient and reason for payment are independently verified.")
+    if "phishing" in categories or "links" in categories:
+        advice.append("Do not click the visible suspicious link. Open the official website/app yourself instead.")
+    if "off_platform" in categories:
+        advice.append("Do not move to WhatsApp/Telegram/private chat solely because an unknown account asks you to.")
+    if "impersonation" in categories:
+        advice.append("Verify the claimed person, company or support team using a known official website or app, not the contact details shown in the screenshot.")
+    if "romance_money" in categories:
+        advice.append("Do not send gifts, gift cards, crypto or emergency money based only on an online relationship story.")
     return list(dict.fromkeys(str(x) for x in advice if str(x).strip()))
 
 
 def scan_screenshot(file_or_filename):
     if not hasattr(file_or_filename, "read"):
-        return {"score":0,"level":"LOW","summary":"The screenshot content was not available. Filename-only analysis is not sufficient.","reasons":["Actual screenshot content was not provided."],"actions":["Upload the actual social-media screenshot for content analysis."],"invalid":False,"social_analysis":{"platform":"Unknown","evidence_quality":"Insufficient"}}
+        return {"score": 0, "level": "LOW", "summary": "The screenshot content was not available. Filename-only analysis is not sufficient.", "reasons": ["Actual screenshot content was not provided."], "actions": ["Upload the actual social-media screenshot for content analysis."], "invalid": False, "social_analysis": {"platform": "Unknown", "evidence_quality": "Insufficient"}}
 
     image_bytes = _read_uploaded_image(file_or_filename)
     if not image_bytes:
-        return {"score":0,"level":"LOW","summary":"The uploaded screenshot could not be read. No authenticity verdict was made.","reasons":["The screenshot file is empty, unreadable, or too large."],"actions":["Upload a clear PNG, JPG or WEBP screenshot."],"social_analysis":{"platform":"Unknown","evidence_quality":"Insufficient"}}
+        return {"score": 0, "level": "LOW", "summary": "The uploaded screenshot could not be read. No authenticity verdict was made.", "reasons": ["The screenshot file is empty, unreadable, or too large."], "actions": ["Upload a clear PNG, JPG or WEBP screenshot."], "invalid": False, "social_analysis": {"platform": "Unknown", "evidence_quality": "Insufficient"}}
 
-    analysis, api_error = _vision_api_analysis(image_bytes, _image_mime(file_or_filename))
-    ocr_text = ""
-    if analysis is None:
-        ocr_text = _extract_local_ocr(image_bytes)
-        analysis = {
-            "platform":"Unknown",
-            "evidence_quality":"Low" if ocr_text else "Insufficient",
-            "visible_text":ocr_text,
-            "profile":_extract_profile_numbers(ocr_text),
-            "signals":[],"scam_types":[],
-            "risk_adjustments":{"positive":[],"negative":[]},
-            "summary":"OCR-visible screenshot text was analyzed." if ocr_text else "The Vision API could not analyze this screenshot.",
-            "advice":[]
-        }
-        if api_error:
-            analysis["api_status"] = api_error
-        low = ocr_text.lower()
-        if "instagram" in low: analysis["platform"] = "Instagram"
-        elif "facebook" in low: analysis["platform"] = "Facebook"
-        elif "twitter" in low: analysis["platform"] = "X"
+    ocr_text = _extract_local_ocr(image_bytes)
+    if not ocr_text:
+        return {"score": 0, "level": "LOW", "summary": "Insufficient evidence. SENTINEL could not reliably read the uploaded screenshot locally, so it will not guess whether the profile is genuine or fake.", "reasons": ["No reliable local OCR text was extracted from the screenshot."], "actions": ["Upload a clearer, higher-resolution screenshot with readable text."], "invalid": False, "confidence": "Insufficient", "evidence_quality": "Insufficient", "social_analysis": {"platform": "Unknown", "evidence_quality": "Insufficient", "visible_text": ""}}
 
-    analysis = _normalise_social_analysis(analysis)
+    profile_numbers = _extract_profile_numbers(ocr_text)
+    analysis = {
+        "platform": _detect_platform(ocr_text),
+        "evidence_quality": "High" if len(ocr_text) >= 120 else "Medium",
+        "visible_text": ocr_text,
+        "profile": profile_numbers,
+        "signals": [],
+        "scam_types": [],
+        "risk_adjustments": {"positive": [], "negative": []},
+        "summary": "Local OCR extracted screenshot-visible text and the rule engine evaluated multiple security factors.",
+        "advice": []
+    }
+
+    # Text-level hints for common platform/profile labels.
+    low = _normalise_social_text(ocr_text)
+    analysis["profile"]["verified_badge"] = bool(re.search(r"verified|officially verified", low))
+    analysis["profile"]["new_badge"] = bool(re.search(r"\bnew\b", low))
+    analysis["profile"]["fan_or_parody_label"] = bool(re.search(r"fan page|fan account|parody|unofficial|commentary", low))
+    analysis["profile"]["official_claim"] = bool(re.search(r"\bofficial\b", low))
+    analysis["profile"]["default_profile_image"] = bool(re.search(r"default profile|no profile picture", low))
+
     score, reasons, analysis = _social_score(analysis)
-    quality = str(analysis.get("evidence_quality", "Insufficient"))
+    quality = analysis.get("evidence_quality", "Insufficient")
+    level = risk_level(score)
 
-    if quality == "Insufficient":
-        score = 0
-        summary = "Insufficient evidence. The screenshot could not be reliably analyzed, so SENTINEL will not guess whether the profile is genuine or fake."
-        if analysis.get("api_status"):
-            reasons = [analysis["api_status"]]
+    if analysis["profile"].get("verified_badge") and score < 35:
+        summary = "🔵 Verified Profile Detected — the screenshot contains a visible verification/official signal. This is a positive signal, not an absolute guarantee."
+    elif score >= 80:
+        summary = "🚨 Critical-risk activity detected from multiple screenshot-visible signals. Do not proceed with the suspicious activity shown."
+    elif score >= 60:
+        summary = "⚠️ High-risk activity detected from several combined screenshot-visible signals. Independent verification is required before any action."
+    elif score >= 35:
+        summary = "⚠️ Suspicious indicators were detected from the screenshot. The screenshot alone does not prove the account is fake, but caution is strongly recommended."
     else:
-        if analysis.get("profile", {}).get("verified_badge") and score < 35:
-            summary = "🔵 Verified Profile Detected — the profile appears verified based on the visible verification badge."
-        elif score >= 80:
-            summary = "🚨 High-risk activity detected from multiple screenshot-visible signals. Do not proceed with the suspicious activity shown."
-        elif score >= 60:
-            summary = "⚠️ Several strong warning signals were detected from the screenshot. Independent verification is recommended before any action."
-        elif score >= 35:
-            summary = "⚠️ Some suspicious indicators were detected. The screenshot alone does not prove that the account is fake, but caution is recommended."
-        else:
-            summary = "No major combined-risk pattern was detected from the visible evidence. This does not prove that the account is genuine."
+        summary = "🛡️ No strong combined-risk pattern was detected from the readable screenshot evidence. This does not prove that the account is genuine."
 
-    final_actions = _social_advice(score, analysis)
     result = make_result(score, reasons)
     result["summary"] = summary
-    result["actions"] = final_actions
+    result["actions"] = _social_advice(score, analysis)
     result["confidence"] = quality
     result["evidence_quality"] = quality
     result["social_analysis"] = analysis
     result["platform"] = analysis.get("platform", "Unknown")
     result["scam_types"] = analysis.get("scam_types", [])
+    result["analysis_engine"] = "Local OCR + deterministic multi-factor rules (API-free)"
     return result
+
 
 
 # AI COPILOT
