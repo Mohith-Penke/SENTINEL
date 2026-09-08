@@ -613,61 +613,94 @@ def _extract_local_ocr(image_bytes):
 
 
 def _vision_api_analysis(image_bytes, mime_type="image/jpeg"):
+    """Analyze the actual uploaded screenshot with a vision-capable OpenAI model.
+
+    This intentionally uses two API attempts: JSON mode first, then a plain-text
+    JSON response fallback. That makes the analyzer resilient to model/endpoint
+    differences while keeping the screenshot itself as the source of truth.
+    """
     api_key = os.environ.get("SENTINEL_VISION_API_KEY") or os.environ.get("OPENAI_API_KEY")
     if not api_key or not image_bytes:
         return None, "Vision API key or image data is unavailable."
 
     endpoint = os.environ.get("SENTINEL_VISION_API_URL", "https://api.openai.com/v1/chat/completions")
-    model = os.environ.get("SENTINEL_VISION_MODEL", "gpt-4o-mini")
+    configured_model = os.environ.get("SENTINEL_VISION_MODEL", "gpt-4o-mini").strip()
+    models = [configured_model]
+    # Safe fallback if a custom Render model name is invalid/unavailable.
+    for fallback in ("gpt-4o-mini", "gpt-4.1-mini"):
+        if fallback not in models:
+            models.append(fallback)
+
     encoded = base64.b64encode(image_bytes).decode("ascii")
     data_url = "data:" + mime_type + ";base64," + encoded
+    user_text = (
+        "Analyze THIS uploaded screenshot itself. Do not use the filename and do not invent "
+        "details that are not visible. Identify the platform/profile/page, visible text, "
+        "verification/new/fan/parody labels, links, money/payment requests, credentials, "
+        "urgency, impersonation, scam patterns, and evidence quality. Return ONLY valid JSON."
+    )
 
-    payload = {
-        "model": model,
-        "temperature": 0,
-        "max_tokens": 5000,
-        "response_format": {"type": "json_object"},
-        "messages": [
-            {"role": "system", "content": SOCIAL_VISION_PROMPT},
-            {"role": "user", "content": [
-                {"type": "text", "text": "Inspect THIS image carefully. Analyze the actual screenshot content, not a filename. Extract the target profile/page evidence and return the requested JSON."},
-                {"type": "image_url", "image_url": {"url": data_url, "detail": "high"}}
-            ]}
-        ]
-    }
+    last_error = None
+    from urllib.request import Request, urlopen
+    from urllib.error import HTTPError, URLError
 
-    try:
-        from urllib.request import Request, urlopen
-        req = Request(
-            endpoint,
-            data=json.dumps(payload).encode("utf-8"),
-            headers={
-                "Content-Type": "application/json",
-                "Authorization": "Bearer " + api_key
-            },
-            method="POST"
-        )
-        with urlopen(req, timeout=60) as response:
-            raw = response.read().decode("utf-8")
-        data = json.loads(raw)
-        content = data.get("choices", [{}])[0].get("message", {}).get("content", "")
-        if isinstance(content, list):
-            content = "".join(
-                part.get("text", "") for part in content if isinstance(part, dict)
-            )
-        content = str(content or "").strip()
-        content = re.sub(r"^```(?:json)?\s*|\s*```$", "", content, flags=re.I).strip()
-        parsed = json.loads(content)
-        if isinstance(parsed, dict):
-            return parsed, None
-        return None, "Vision API returned an unexpected response format."
-    except Exception as exc:
-        # Do not expose the API key. Return a short diagnostic so deployment failures
-        # are distinguishable from a normal screenshot result.
-        message = str(exc).strip().replace("\n", " ")
-        if len(message) > 240:
-            message = message[:240]
-        return None, "Vision API request failed: " + message
+    for model in models:
+        for json_mode in (True, False):
+            payload = {
+                "model": model,
+                "temperature": 0,
+                "max_tokens": 4500,
+                "messages": [
+                    {"role": "system", "content": SOCIAL_VISION_PROMPT},
+                    {"role": "user", "content": [
+                        {"type": "text", "text": user_text},
+                        {"type": "image_url", "image_url": {"url": data_url, "detail": "high"}}
+                    ]}
+                ]
+            }
+            if json_mode:
+                payload["response_format"] = {"type": "json_object"}
+
+            try:
+                req = Request(
+                    endpoint,
+                    data=json.dumps(payload).encode("utf-8"),
+                    headers={
+                        "Content-Type": "application/json",
+                        "Authorization": "Bearer " + api_key
+                    },
+                    method="POST"
+                )
+                with urlopen(req, timeout=75) as response:
+                    raw = response.read().decode("utf-8")
+                data = json.loads(raw)
+                content = data.get("choices", [{}])[0].get("message", {}).get("content", "")
+                if isinstance(content, list):
+                    content = "".join(
+                        part.get("text", "") for part in content if isinstance(part, dict)
+                    )
+                content = str(content or "").strip()
+                content = re.sub(r"^```(?:json)?\s*|\s*```$", "", content, flags=re.I).strip()
+                parsed = json.loads(content)
+                if isinstance(parsed, dict):
+                    parsed["vision_model"] = model
+                    parsed["vision_api"] = "OpenAI"
+                    return parsed, None
+                last_error = "Vision API returned a non-object JSON response."
+            except HTTPError as exc:
+                try:
+                    body = exc.read().decode("utf-8", errors="ignore")
+                    err = json.loads(body).get("error", {}).get("message", body)
+                except Exception:
+                    err = str(exc)
+                last_error = f"HTTP {exc.code}: {str(err)[:220]}"
+                # Try the next compatible mode/model rather than failing immediately.
+            except URLError as exc:
+                last_error = "Network error reaching Vision API: " + str(exc.reason)[:180]
+            except Exception as exc:
+                last_error = "Vision API parse/request error: " + str(exc).strip().replace("\n", " ")[:200]
+
+    return None, (last_error or "Vision API analysis failed.")
 
 
 def _normalise_social_analysis(data):
