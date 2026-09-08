@@ -623,39 +623,81 @@ def _read_uploaded_image(file):
     return data
 
 
-def _ocr_pass(image, config):
+_SOCIAL_OCR_ENGINE = None
+
+
+def _ocr_pass(image, config=None):
+    """Run one offline RapidOCR pass. No API, browser service or system binary."""
     try:
-        import pytesseract
-        value = pytesseract.image_to_string(image, config=config)
-        return str(value or "").strip()
+        import numpy as np
+        from rapidocr import RapidOCR
+
+        # Cache the engine after the first request so repeated screenshots stay fast.
+        global _SOCIAL_OCR_ENGINE
+        if _SOCIAL_OCR_ENGINE is None:
+            _SOCIAL_OCR_ENGINE = RapidOCR()
+
+        if hasattr(image, "convert"):
+            image = image.convert("RGB")
+            image = np.array(image)
+        elif isinstance(image, bytes):
+            from PIL import Image
+            import io
+            image = np.array(Image.open(io.BytesIO(image)).convert("RGB"))
+
+        result = _SOCIAL_OCR_ENGINE(image)
+
+        # RapidOCR 3.x returns an object with txts; keep compatibility with
+        # tuple/list/dict-shaped results as well.
+        texts = getattr(result, "txts", None)
+        if texts is None and isinstance(result, dict):
+            texts = result.get("txts") or result.get("texts") or result.get("text")
+        if texts is None and isinstance(result, (tuple, list)):
+            for item in result:
+                if isinstance(item, (list, tuple)) and item and all(isinstance(x, str) for x in item):
+                    texts = item
+                    break
+
+        if isinstance(texts, str):
+            return texts.strip()
+        if isinstance(texts, (list, tuple)):
+            return "\n".join(str(x).strip() for x in texts if str(x).strip())
+        return ""
     except Exception:
         return ""
 
 
 def _extract_local_ocr(image_bytes):
-    """Run several local OCR passes. No network/API is used."""
+    """Run several offline OCR/preprocessing passes using RapidOCR.
+
+    RapidOCR packages its OCR models, so Render does not need apt-get,
+    Tesseract, an API key, or any external OCR service.
+    """
     if not image_bytes:
         return ""
     try:
         from PIL import Image, ImageOps, ImageFilter, ImageEnhance
         import io
+
+        global _SOCIAL_OCR_ENGINE
+        _SOCIAL_OCR_ENGINE = None
+
         image = Image.open(io.BytesIO(image_bytes)).convert("RGB")
-        # Upscaling helps screenshots with small UI fonts.
         scale = 2 if max(image.size) < 2200 else 1
         if scale > 1:
             image = image.resize((image.width * scale, image.height * scale))
+
         gray = ImageOps.grayscale(image)
         gray = ImageEnhance.Contrast(gray).enhance(1.7)
         sharp = gray.filter(ImageFilter.SHARPEN)
 
+        candidates = (image, gray, sharp)
         texts = []
-        for candidate in (image, gray, sharp):
-            for config in ("--psm 6", "--psm 11", "--psm 12"):
-                out = _ocr_pass(candidate, config)
-                if out:
-                    texts.append(out)
+        for candidate in candidates:
+            out = _ocr_pass(candidate)
+            if out:
+                texts.append(out)
 
-        # Deduplicate lines while retaining OCR order.
         seen = set()
         lines = []
         for raw in "\n".join(texts).splitlines():
@@ -669,7 +711,6 @@ def _extract_local_ocr(image_bytes):
         return "\n".join(lines)
     except Exception:
         return ""
-
 
 def _normalise_social_text(text):
     text = str(text or "").lower()
