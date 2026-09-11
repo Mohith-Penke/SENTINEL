@@ -142,18 +142,16 @@ function renderRiskResult(prefix, result) {
     setText(`${prefix}-level`, level);
     setText(`${prefix}-summary`, result.summary || "");
 
-    const reasons = $( `${prefix}-reasons` );
-    const actions = $( `${prefix}-actions` );
+    const reasons = $(`${prefix}-reasons`);
+    const actions = $(`${prefix}-actions`);
 
     if (reasons) {
         reasons.innerHTML = "";
 
         (result.reasons || []).forEach(reason => {
-
             const li = document.createElement("li");
             li.textContent = reason;
             reasons.appendChild(li);
-
         });
     }
 
@@ -161,11 +159,9 @@ function renderRiskResult(prefix, result) {
         actions.innerHTML = "";
 
         (result.actions || []).forEach(action => {
-
             const li = document.createElement("li");
             li.textContent = action;
             actions.appendChild(li);
-
         });
     }
 
@@ -173,6 +169,61 @@ function renderRiskResult(prefix, result) {
 
     if (meter) {
         meter.style.width = `${score}%`;
+    }
+
+    /* =====================================================
+       WEBSITE SECURITY CHECKS
+       These fields are only used by the website scanner.
+       Existing message/social/game UI is untouched.
+       ===================================================== */
+
+    if (prefix === "website") {
+
+        const ssl = result.ssl_check || {};
+        const visual = result.visual_similarity || {};
+
+        const sslStatus = $("website-ssl-status");
+        const visualStatus = $("website-visual-status");
+
+        if (sslStatus) {
+
+            if (ssl.checked) {
+
+                if (ssl.valid) {
+                    sslStatus.textContent = "VALID ✓";
+                } else {
+                    sslStatus.textContent =
+                        `INVALID ✗${ssl.error ? ` — ${ssl.error}` : ""}`;
+                }
+
+            } else {
+                sslStatus.textContent =
+                    ssl.error || "NOT CHECKED";
+            }
+        }
+
+        if (visualStatus) {
+
+            if (visual.checked) {
+
+                const similarity = Number(visual.similarity_percent);
+
+                if (Number.isFinite(similarity)) {
+                    visualStatus.textContent =
+                        `${similarity.toFixed(1)}% similarity` +
+                        (visual.cloning_indicator
+                            ? " — POSSIBLE CLONING ⚠"
+                            : " — No strong match ✓");
+                } else {
+                    visualStatus.textContent =
+                        visual.reason || "CHECKED";
+                }
+
+            } else {
+                visualStatus.textContent =
+                    visual.reason || "NOT CHECKED";
+            }
+        }
     }
 
     show($(`${prefix}-result`));
