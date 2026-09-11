@@ -1,355 +1,106 @@
 /* =========================================================
-   RISK RESULT
+   WEBSITE SCANNER
 ========================================================= */
 
-function renderRiskResult(prefix, result) {
+async function scanWebsite() {
 
-    if (!result) return;
+    const input = $("website-url");
+    const button = $("scan-website-btn");
+    const progress = $("website-progress");
 
-    const score = Number(result.score || 0);
-    const level = result.level || "LOW";
+    if (!input || !button) return;
 
-    setText(`${prefix}-score`, score);
-    setText(`${prefix}-level`, level);
-    setText(`${prefix}-summary`, result.summary || "");
+    const url = input.value.trim();
 
-    const reasons = $(`${prefix}-reasons`);
-    const actions = $(`${prefix}-actions`);
-
-    if (reasons) {
-        reasons.innerHTML = "";
-
-        (result.reasons || []).forEach(reason => {
-            const li = document.createElement("li");
-            li.textContent = reason;
-            reasons.appendChild(li);
-        });
+    if (!url) {
+        showToast("Enter a website URL first.", "!");
+        input.focus();
+        return;
     }
 
-    if (actions) {
-        actions.innerHTML = "";
+    hide($("website-result"));
+    show(progress);
 
-        (result.actions || []).forEach(action => {
-            const li = document.createElement("li");
-            li.textContent = action;
-            actions.appendChild(li);
-        });
-    }
+    setButtonLoading(button, true, "ANALYZING...");
 
-    const meter = $(`${prefix}-meter-fill`);
+    const fill = $("website-progress-fill");
+    const percent = $("website-progress-percent");
 
-    if (meter) {
-        meter.style.width = `${score}%`;
-    }
+    try {
 
+        const steps = [
+            ["Checking URL structure...", 25],
+            ["Checking suspicious indicators...", 50],
+            ["Checking SSL certificate...", 65],
+            ["Analyzing visual similarity...", 85],
+            ["Generating risk report...", 100]
+        ];
 
-    /* =====================================================
-       WEBSITE SECURITY CHECKS
-       Existing UI/features remain untouched.
-    ===================================================== */
+        for (const [stage, value] of steps) {
 
-    if (prefix === "website") {
+            setText("website-stages", stage);
 
-        const ssl = result.ssl_check || {};
-        const visual = result.visual_similarity || {};
-
-        const sslStatus = $("website-ssl-status");
-        const visualStatus = $("website-visual-status");
-
-
-        /* =================================================
-           SSL / CERTIFICATE RESULT
-        ================================================= */
-
-        if (sslStatus) {
-
-            let sslHTML = "";
-
-            if (!ssl.checked) {
-
-                sslHTML = `
-                    <strong>NOT CHECKED</strong>
-                    ${ssl.error
-                        ? `<br><small>${escapeHTML(ssl.error)}</small>`
-                        : ""}
-                `;
-
-            } else {
-
-                const statusClass =
-                    ssl.valid
-                        ? "VALID"
-                        : "INVALID";
-
-                sslHTML = `
-                    <div class="ssl-result-details">
-
-                        <strong>
-                            ${ssl.valid
-                                ? "VALID ✓"
-                                : "INVALID ✗"}
-                        </strong>
-
-                        <br>
-
-                        <small>
-                            HTTPS:
-                            ${ssl.https
-                                ? "SECURE ✓"
-                                : "NOT SECURE ✗"}
-                        </small>
-
-                        <br>
-
-                        <small>
-                            Hostname:
-                            ${ssl.hostname_match
-                                ? "MATCHED ✓"
-                                : "MISMATCH ✗"}
-                        </small>
-
-                        <br>
-
-                        <small>
-                            Trust:
-                            ${ssl.trusted
-                                ? "TRUSTED ✓"
-                                : "NOT TRUSTED ✗"}
-                        </small>
-
-                        ${
-                            ssl.issuer
-                                ? `
-                                    <br>
-                                    <small>
-                                        Issuer:
-                                        ${escapeHTML(
-                                            ssl.issuer
-                                        )}
-                                    </small>
-                                  `
-                                : ""
-                        }
-
-                        ${
-                            ssl.valid_from
-                                ? `
-                                    <br>
-                                    <small>
-                                        Valid From:
-                                        ${escapeHTML(
-                                            ssl.valid_from
-                                        )}
-                                    </small>
-                                  `
-                                : ""
-                        }
-
-                        ${
-                            ssl.valid_until
-                                ? `
-                                    <br>
-                                    <small>
-                                        Valid Until:
-                                        ${escapeHTML(
-                                            ssl.valid_until
-                                        )}
-                                    </small>
-                                  `
-                                : ""
-                        }
-
-                        ${
-                            ssl.days_remaining !== null &&
-                            ssl.days_remaining !== undefined
-                                ? `
-                                    <br>
-                                    <small>
-                                        Days Remaining:
-                                        ${escapeHTML(
-                                            ssl.days_remaining
-                                        )}
-                                    </small>
-                                  `
-                                : ""
-                        }
-
-                        ${
-                            ssl.tls_version
-                                ? `
-                                    <br>
-                                    <small>
-                                        TLS:
-                                        ${escapeHTML(
-                                            ssl.tls_version
-                                        )}
-                                    </small>
-                                  `
-                                : ""
-                        }
-
-                        ${
-                            ssl.cipher
-                                ? `
-                                    <br>
-                                    <small>
-                                        Cipher:
-                                        ${escapeHTML(
-                                            ssl.cipher
-                                        )}
-                                    </small>
-                                  `
-                                : ""
-                        }
-
-                        ${
-                            ssl.error
-                                ? `
-                                    <br>
-                                    <small>
-                                        ⚠️
-                                        ${escapeHTML(
-                                            ssl.error
-                                        )}
-                                    </small>
-                                  `
-                                : ""
-                        }
-
-                    </div>
-                `;
+            if (fill) {
+                fill.style.width = `${value}%`;
             }
 
-            sslStatus.innerHTML = sslHTML;
-        }
-
-
-        /* =================================================
-           VISUAL SIMILARITY RESULT
-        ================================================= */
-
-        if (visualStatus) {
-
-            if (visual.checked) {
-
-                const similarity =
-                    Number(
-                        visual.similarity_percent
-                    );
-
-                if (Number.isFinite(similarity)) {
-
-                    if (visual.cloning_indicator) {
-
-                        visualStatus.innerHTML = `
-                            <strong>
-                                ${similarity.toFixed(1)}%
-                                similarity ⚠
-                            </strong>
-                            <br>
-                            <small>
-                                POSSIBLE VISUAL CLONING
-                            </small>
-                            ${
-                                visual.reference_brand
-                                    ? `
-                                        <br>
-                                        <small>
-                                            Reference:
-                                            ${escapeHTML(
-                                                visual.reference_brand
-                                            )}
-                                        </small>
-                                      `
-                                    : ""
-                            }
-                        `;
-
-                    } else {
-
-                        visualStatus.innerHTML = `
-                            <strong>
-                                ${similarity.toFixed(1)}%
-                                similarity ✓
-                            </strong>
-                            <br>
-                            <small>
-                                No strong visual cloning match
-                            </small>
-                            ${
-                                visual.reference_brand
-                                    ? `
-                                        <br>
-                                        <small>
-                                            Reference:
-                                            ${escapeHTML(
-                                                visual.reference_brand
-                                            )}
-                                        </small>
-                                      `
-                                    : ""
-                            }
-                        `;
-                    }
-
-                } else {
-
-                    visualStatus.innerHTML = `
-                        <strong>CHECKED</strong>
-                        ${
-                            visual.reason
-                                ? `
-                                    <br>
-                                    <small>
-                                        ${escapeHTML(
-                                            visual.reason
-                                        )}
-                                    </small>
-                                  `
-                                : ""
-                        }
-                    `;
-                }
-
-            } else {
-
-                visualStatus.innerHTML = `
-                    <strong>NOT CHECKED</strong>
-                    ${
-                        visual.reason
-                            ? `
-                                <br>
-                                <small>
-                                    ${escapeHTML(
-                                        visual.reason
-                                    )}
-                                </small>
-                              `
-                            : ""
-                    }
-                `;
+            if (percent) {
+                percent.textContent = `${value}%`;
             }
+
+            await sleep(180);
         }
-    }
 
+        const result = await postJSON("/scan", {
+            url: url
+        });
 
-    /* =====================================================
-       SHOW RESULT
-    ===================================================== */
+        if (!result) {
+            throw new Error("No result received from server.");
+        }
 
-    show($(`${prefix}-result`));
+        renderRiskResult("website", result);
 
-    updateStats(prefix, result);
+        showToast(
+            `Website analysis complete: ${result.level || "UNKNOWN"}`,
+            result.level === "LOW" ? "✓" : "!"
+        );
 
+    } catch (error) {
 
-    /* =====================================================
-       DANGER MODE
-    ===================================================== */
+        console.error("SENTINEL website scan error:", error);
 
-    if (
-        level === "HIGH" ||
-        level === "CRITICAL"
-    ) {
-        triggerDangerMode();
+        showToast(
+            error.message || "Website scan failed.",
+            "!"
+        );
+
+    } finally {
+
+        setButtonLoading(button, false);
+        hide(progress);
+
     }
 }
+
+
+$("scan-website-btn")?.addEventListener(
+    "click",
+    scanWebsite
+);
+
+
+$("website-url")?.addEventListener(
+    "keydown",
+    event => {
+
+        if (event.key === "Enter") {
+
+            event.preventDefault();
+
+            scanWebsite();
+
+        }
+
+    }
+);
