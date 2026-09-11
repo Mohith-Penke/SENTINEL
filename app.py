@@ -24,13 +24,35 @@ PORT = int(os.environ.get("PORT", 5000))
 # =========================================================
 
 def risk_level(score):
-    if score >= 80:
-        return "CRITICAL"
-    if score >= 60:
+    # Round 2 score bands:
+    # 30-40  -> LOW
+    # 41-70  -> MEDIUM
+    # 71-100 -> HIGH
+    # The raw score is still calculated from the actual security signals.
+    if score >= 61:
         return "HIGH"
-    if score >= 35:
+    if score >= 36:
         return "MEDIUM"
     return "LOW"
+
+
+def display_risk_score(raw_score):
+    """Map the detector's raw severity to the required 30-100 display range.
+
+    This preserves relative severity instead of giving every site a fixed score.
+    Raw 0-35   -> display 30-40 (LOW)
+    Raw 36-60  -> display 41-70 (MEDIUM)
+    Raw 61-100 -> display 71-100 (HIGH)
+    """
+    raw = max(0, min(100, float(raw_score or 0)))
+
+    if raw <= 35:
+        return int(round(30 + (raw / 35) * 10))
+
+    if raw <= 60:
+        return int(round(41 + ((raw - 36) / 24) * 29))
+
+    return int(round(71 + ((raw - 61) / 39) * 29))
 
 
 def risk_summary(level):
@@ -79,8 +101,9 @@ def actions(level):
 
 
 def make_result(score, reasons):
-    score = max(0, min(100, int(score)))
-    level = risk_level(score)
+    raw_score = max(0, min(100, float(score or 0)))
+    score = display_risk_score(raw_score)
+    level = risk_level(raw_score)
 
     return {
         "score": score,
@@ -2284,3 +2307,4 @@ if __name__ == "__main__":
         port=PORT,
         debug=False
     )
+    
