@@ -24,35 +24,13 @@ PORT = int(os.environ.get("PORT", 5000))
 # =========================================================
 
 def risk_level(score):
-    # Round 2 score bands:
-    # 30-40  -> LOW
-    # 41-70  -> MEDIUM
-    # 71-100 -> HIGH
-    # The raw score is still calculated from the actual security signals.
-    if score >= 61:
+    if score >= 80:
+        return "CRITICAL"
+    if score >= 60:
         return "HIGH"
-    if score >= 36:
+    if score >= 35:
         return "MEDIUM"
     return "LOW"
-
-
-def display_risk_score(raw_score):
-    """Map the detector's raw severity to the required 30-100 display range.
-
-    This preserves relative severity instead of giving every site a fixed score.
-    Raw 0-35   -> display 30-40 (LOW)
-    Raw 36-60  -> display 41-70 (MEDIUM)
-    Raw 61-100 -> display 71-100 (HIGH)
-    """
-    raw = max(0, min(100, float(raw_score or 0)))
-
-    if raw <= 35:
-        return int(round(30 + (raw / 35) * 10))
-
-    if raw <= 60:
-        return int(round(41 + ((raw - 36) / 24) * 29))
-
-    return int(round(71 + ((raw - 61) / 39) * 29))
 
 
 def risk_summary(level):
@@ -101,9 +79,8 @@ def actions(level):
 
 
 def make_result(score, reasons):
-    raw_score = max(0, min(100, float(score or 0)))
-    score = display_risk_score(raw_score)
-    level = risk_level(raw_score)
+    score = max(0, min(100, int(score)))
+    level = risk_level(score)
 
     return {
         "score": score,
@@ -216,14 +193,17 @@ def is_valid_url_input(value):
 # =========================================================
 
 def check_ssl_certificate(url):
-    """Perform a real TLS certificate validation for HTTPS URLs.
+    """Perform a real TLS certificate validation and collect certificate details.
 
-    This checks certificate trust, hostname verification and expiry through
-    Python's system CA store. It never treats HTTPS alone as proof of safety.
+    The result contains both the security verdict and useful certificate
+    metadata for the Website Scanner UI. A valid certificate only confirms
+    the TLS connection is properly authenticated; it does not prove that the
+    website itself is legitimate.
     """
     parsed = urlparse(url)
     host = (parsed.hostname or "").lower()
     port = parsed.port or 443
+    now = datetime.now(timezone.utc)
 
     result = {
         "checked": True,
@@ -233,7 +213,13 @@ def check_ssl_certificate(url):
         "trusted": False,
         "expired": None,
         "expires_at": None,
+        "valid_from": None,
+        "days_remaining": None,
         "issuer": None,
+        "subject": None,
+        "tls_version": None,
+        "cipher": None,
+        "certificate_version": None,
         "error": None,
     }
 
@@ -249,8 +235,24 @@ def check_ssl_certificate(url):
         with socket.create_connection((host, port), timeout=7) as raw_socket:
             with context.wrap_socket(raw_socket, server_hostname=host) as tls_socket:
                 cert = tls_socket.getpeercert()
+
                 result["trusted"] = True
                 result["hostname_match"] = True
+                result["tls_version"] = tls_socket.version()
+
+                cipher_info = tls_socket.cipher()
+                if cipher_info:
+                    result["cipher"] = cipher_info[0]
+
+                if cert.get("version") is not None:
+                    result["certificate_version"] = "v" + str(cert["version"] + 1)
+
+                not_before = cert.get("notBefore")
+                if not_before:
+                    issued = datetime.strptime(
+                        not_before, "%b %d %H:%M:%S %Y %Z"
+                    ).replace(tzinfo=timezone.utc)
+                    result["valid_from"] = issued.isoformat()
 
                 not_after = cert.get("notAfter")
                 if not_after:
@@ -258,7 +260,8 @@ def check_ssl_certificate(url):
                         not_after, "%b %d %H:%M:%S %Y %Z"
                     ).replace(tzinfo=timezone.utc)
                     result["expires_at"] = expiry.isoformat()
-                    result["expired"] = expiry <= datetime.now(timezone.utc)
+                    result["expired"] = expiry <= now
+                    result["days_remaining"] = max(0, (expiry - now).days)
 
                 issuer_parts = []
                 for group in cert.get("issuer", ()):
@@ -268,13 +271,35 @@ def check_ssl_certificate(url):
                 if issuer_parts:
                     result["issuer"] = " / ".join(dict.fromkeys(issuer_parts))
 
-                result["valid"] = not bool(result["expired"])
+                subject_parts = []
+                for group in cert.get("subject", ()):
+                    for key, value in group:
+                        if key in ("commonName", "organizationName"):
+                            subject_parts.append(str(value))
+                if subject_parts:
+                    result["subject"] = " / ".join(dict.fromkeys(subject_parts))
 
-    except ssl.CertificateError as exc:
+                result["valid"] = (
+                    result["trusted"]
+                    and result["hostname_match"]
+                    and result["expired"] is False
+                )
+
+                if result["valid"]:
+                    result["security_message"] = (
+                        "The certificate is trusted, matches the requested hostname, "
+                        "and is currently within its validity period."
+                    )
+                elif result["expired"]:
+                    result["security_message"] = "The certificate has expired."
+
+    except ssl.CertificateError:
         result["hostname_match"] = False
         result["error"] = "Certificate hostname verification failed."
     except ssl.SSLCertVerificationError as exc:
         result["error"] = "The TLS certificate could not be trusted or is invalid."
+        if getattr(exc, "verify_message", None):
+            result["verification_error"] = str(exc.verify_message)
     except (socket.timeout, TimeoutError):
         result["error"] = "TLS certificate check timed out."
     except (socket.gaierror, ConnectionError, OSError):
