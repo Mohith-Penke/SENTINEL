@@ -6,6 +6,9 @@ import json
 import hashlib
 import subprocess
 import tempfile
+import ssl
+import socket
+from datetime import datetime, timezone
 from urllib.parse import urlparse
 
 from flask import Flask, jsonify, render_template, request
@@ -186,6 +189,217 @@ def is_valid_url_input(value):
 
 
 # =========================================================
+# ROUND 2: SSL / CERTIFICATE VALIDITY
+# =========================================================
+
+def check_ssl_certificate(url):
+    """Perform a real TLS certificate validation for HTTPS URLs.
+
+    This checks certificate trust, hostname verification and expiry through
+    Python's system CA store. It never treats HTTPS alone as proof of safety.
+    """
+    parsed = urlparse(url)
+    host = (parsed.hostname or "").lower()
+    port = parsed.port or 443
+
+    result = {
+        "checked": True,
+        "https": parsed.scheme.lower() == "https",
+        "valid": False,
+        "hostname_match": False,
+        "trusted": False,
+        "expired": None,
+        "expires_at": None,
+        "issuer": None,
+        "error": None,
+    }
+
+    if parsed.scheme.lower() != "https":
+        result["error"] = "The website is not using HTTPS/TLS."
+        return result
+
+    context = ssl.create_default_context()
+    context.check_hostname = True
+    context.verify_mode = ssl.CERT_REQUIRED
+
+    try:
+        with socket.create_connection((host, port), timeout=7) as raw_socket:
+            with context.wrap_socket(raw_socket, server_hostname=host) as tls_socket:
+                cert = tls_socket.getpeercert()
+                result["trusted"] = True
+                result["hostname_match"] = True
+
+                not_after = cert.get("notAfter")
+                if not_after:
+                    expiry = datetime.strptime(
+                        not_after, "%b %d %H:%M:%S %Y %Z"
+                    ).replace(tzinfo=timezone.utc)
+                    result["expires_at"] = expiry.isoformat()
+                    result["expired"] = expiry <= datetime.now(timezone.utc)
+
+                issuer_parts = []
+                for group in cert.get("issuer", ()):
+                    for key, value in group:
+                        if key in ("organizationName", "commonName"):
+                            issuer_parts.append(str(value))
+                if issuer_parts:
+                    result["issuer"] = " / ".join(dict.fromkeys(issuer_parts))
+
+                result["valid"] = not bool(result["expired"])
+
+    except ssl.CertificateError as exc:
+        result["hostname_match"] = False
+        result["error"] = "Certificate hostname verification failed."
+    except ssl.SSLCertVerificationError as exc:
+        result["error"] = "The TLS certificate could not be trusted or is invalid."
+    except (socket.timeout, TimeoutError):
+        result["error"] = "TLS certificate check timed out."
+    except (socket.gaierror, ConnectionError, OSError):
+        result["error"] = "The TLS certificate could not be checked because the host is unreachable."
+    except Exception as exc:
+        result["error"] = f"TLS certificate check failed: {exc.__class__.__name__}."
+
+    return result
+
+
+# =========================================================
+# ROUND 2: VISUAL SIMILARITY / CLONING CHECK
+# =========================================================
+
+KNOWN_LEGITIMATE_SITES = {
+    "paypal": "https://www.paypal.com/",
+    "google": "https://www.google.com/",
+    "microsoft": "https://www.microsoft.com/",
+    "apple": "https://www.apple.com/",
+    "amazon": "https://www.amazon.com/",
+    "instagram": "https://www.instagram.com/",
+    "facebook": "https://www.facebook.com/",
+    "sbi": "https://www.sbi.co.in/",
+    "hdfc": "https://www.hdfcbank.com/",
+    "icici": "https://www.icicibank.com/",
+}
+
+
+def _detect_brand_for_visual_check(host):
+    for brand, official_url in KNOWN_LEGITIMATE_SITES.items():
+        official_host = (urlparse(official_url).hostname or "").lower()
+        if brand in host and not (
+            host == official_host or host.endswith("." + official_host)
+        ):
+            return brand, official_url
+    return None, None
+
+
+def _visual_similarity_playwright(target_url, reference_url):
+    """Render both pages and compare screenshots when Playwright is available.
+
+    Returns a structured result instead of a guessed score. If the browser
+    runtime is unavailable, the caller receives an explicit unavailable state.
+    """
+    try:
+        from PIL import Image, ImageChops, ImageStat
+        from playwright.sync_api import sync_playwright
+    except Exception:
+        return {
+            "available": False,
+            "method": "browser-rendered screenshot",
+            "similarity_percent": None,
+            "reference": reference_url,
+            "reason": "Playwright/Pillow is not installed on the server."
+        }
+
+    try:
+        with sync_playwright() as p:
+            browser = p.chromium.launch(headless=True)
+            try:
+                context = browser.new_context(
+                    viewport={"width": 1365, "height": 900},
+                    ignore_https_errors=False,
+                )
+
+                images = []
+                for page_url in (reference_url, target_url):
+                    page = context.new_page()
+                    page.goto(
+                        page_url,
+                        wait_until="domcontentloaded",
+                        timeout=15000,
+                    )
+                    page.wait_for_timeout(1200)
+                    raw = page.screenshot(
+                        type="png",
+                        full_page=False,
+                    )
+                    images.append(Image.open(__import__("io").BytesIO(raw)).convert("RGB"))
+                    page.close()
+
+                reference_image, target_image = images
+                target_image = target_image.resize(reference_image.size)
+                diff = ImageChops.difference(reference_image, target_image)
+                mean_diff = sum(ImageStat.Stat(diff).mean) / 3.0
+                similarity = max(0.0, min(100.0, 100.0 - (mean_diff / 255.0 * 100.0)))
+
+                return {
+                    "available": True,
+                    "method": "browser-rendered screenshot",
+                    "similarity_percent": round(similarity, 2),
+                    "reference": reference_url,
+                    "reason": "Compared rendered page pixels at a fixed viewport."
+                }
+            finally:
+                browser.close()
+    except Exception as exc:
+        return {
+            "available": False,
+            "method": "browser-rendered screenshot",
+            "similarity_percent": None,
+            "reference": reference_url,
+            "reason": f"Visual rendering failed: {exc.__class__.__name__}."
+        }
+
+
+def check_visual_similarity(url):
+    parsed = urlparse(url)
+    host = (parsed.hostname or "").lower()
+    brand, reference_url = _detect_brand_for_visual_check(host)
+
+    result = {
+        "checked": False,
+        "available": False,
+        "brand": brand,
+        "reference": reference_url,
+        "similarity_percent": None,
+        "cloning_indicator": False,
+        "method": "browser-rendered screenshot",
+        "reason": None,
+    }
+
+    if not brand or not reference_url:
+        result["reason"] = "No known legitimate brand reference matched this domain."
+        return result
+
+    result["checked"] = True
+    visual = _visual_similarity_playwright(url, reference_url)
+    result.update(visual)
+
+    similarity = result.get("similarity_percent")
+    if isinstance(similarity, (int, float)):
+        result["cloning_indicator"] = similarity >= 75.0
+        if result["cloning_indicator"]:
+            result["reason"] = (
+                f"The rendered page is highly similar to the known legitimate "
+                f"{brand.title()} site."
+            )
+        else:
+            result["reason"] = (
+                f"The rendered page was compared with the known legitimate "
+                f"{brand.title()} site."
+            )
+
+    return result
+
+
+# =========================================================
 # WEBSITE SCANNER
 # =========================================================
 
@@ -336,12 +550,47 @@ def scan_url(url):
             "The URL uses a non-standard port."
         )
 
+    # ---------------------------------------------------------
+    # ROUND 2: SSL certificate validity
+    # ---------------------------------------------------------
+    ssl_result = check_ssl_certificate(url)
+
+    if parsed.scheme.lower() == "https":
+        if ssl_result.get("valid"):
+            reasons.append("TLS certificate validation passed: the certificate is trusted, matches the hostname, and is not expired.")
+        else:
+            score += 30
+            if ssl_result.get("error"):
+                reasons.append("SSL/TLS certificate check failed: " + ssl_result["error"])
+
+    # ---------------------------------------------------------
+    # ROUND 2: rendered visual similarity / cloning check
+    # ---------------------------------------------------------
+    visual_result = check_visual_similarity(url)
+
+    if visual_result.get("cloning_indicator"):
+        score += 30
+        reasons.append(
+            "Visual cloning indicator: the rendered page is highly similar to a known legitimate "
+            + str(visual_result.get("brand") or "brand")
+            + " website."
+        )
+    elif visual_result.get("checked") and visual_result.get("available"):
+        reasons.append(
+            "Visual similarity check completed against the known legitimate "
+            + str(visual_result.get("brand") or "brand")
+            + " website."
+        )
+
     if not reasons:
         reasons.append(
             "No major suspicious URL indicators were detected."
         )
 
-    return make_result(score, reasons)
+    result = make_result(score, reasons)
+    result["ssl_check"] = ssl_result
+    result["visual_similarity"] = visual_result
+    return result
 
 
 # =========================================================
