@@ -772,3 +772,1721 @@ $("website-url")?.addEventListener(
         }
     }
 );
+/* =========================================================
+   MESSAGE SCANNER
+========================================================= */
+
+async function scanMessage() {
+
+    const input =
+        $("message-input") ||
+        $("message-text");
+
+    const button =
+        $("scan-message-btn");
+
+    const resultBox =
+        $("message-result");
+
+    if (!input || !button) return;
+
+    const message =
+        input.value.trim();
+
+    if (!message) {
+        showToast(
+            "Enter a message first.",
+            "!"
+        );
+        input.focus();
+        return;
+    }
+
+    hide(resultBox);
+
+    setButtonLoading(
+        button,
+        true,
+        "ANALYZING..."
+    );
+
+    try {
+
+        const result =
+            await postJSON(
+                "/scan-message",
+                {
+                    message: message
+                },
+                20000
+            );
+
+        if (!result) {
+            throw new Error(
+                "No result received from server."
+            );
+        }
+
+        renderRiskResult(
+            "message",
+            result
+        );
+
+        showToast(
+            `Message analysis complete: ${
+                result.level || "UNKNOWN"
+            }`,
+            result.level === "LOW"
+                ? "✓"
+                : "!"
+        );
+
+    } catch (error) {
+
+        console.error(
+            "SENTINEL message scan error:",
+            error
+        );
+
+        showToast(
+            error.message ||
+            "Message scan failed.",
+            "!"
+        );
+
+    } finally {
+
+        setButtonLoading(
+            button,
+            false
+        );
+    }
+}
+
+$("scan-message-btn")?.addEventListener(
+    "click",
+    scanMessage
+);
+
+
+/* =========================================================
+   SOCIAL PROFILE ANALYZER
+========================================================= */
+
+async function analyzeSocialProfile() {
+
+    const input =
+        $("social-profile-url");
+
+    const button =
+        $("analyze-social-btn");
+
+    const progress =
+        $("social-progress");
+
+    if (!input || !button) return;
+
+    const url =
+        input.value.trim();
+
+    if (!url) {
+
+        showToast(
+            "Enter a social profile URL first.",
+            "!"
+        );
+
+        input.focus();
+
+        return;
+    }
+
+    hide($("social-result"));
+
+    show(progress);
+
+    setButtonLoading(
+        button,
+        true,
+        "ANALYZING..."
+    );
+
+    try {
+
+        const steps = [
+            [
+                "Validating profile URL...",
+                25
+            ],
+            [
+                "Processing screenshot...",
+                50
+            ],
+            [
+                "Analyzing profile indicators...",
+                75
+            ],
+            [
+                "Generating risk report...",
+                100
+            ]
+        ];
+
+        for (
+            const [stage, value]
+            of steps
+        ) {
+
+            setText(
+                "social-stages",
+                stage
+            );
+
+            const fill =
+                $("social-progress-fill");
+
+            const percent =
+                $("social-progress-percent");
+
+            if (fill) {
+                fill.style.width =
+                    `${value}%`;
+            }
+
+            if (percent) {
+                percent.textContent =
+                    `${value}%`;
+            }
+
+            await sleep(220);
+        }
+
+        const result =
+            await postJSON(
+                "/analyze-social",
+                {
+                    url: url
+                },
+                30000
+            );
+
+        if (!result) {
+            throw new Error(
+                "No result received from server."
+            );
+        }
+
+        renderRiskResult(
+            "social",
+            result
+        );
+
+        showToast(
+            `Social analysis complete: ${
+                result.level || "UNKNOWN"
+            }`,
+            result.level === "LOW"
+                ? "✓"
+                : "!"
+        );
+
+    } catch (error) {
+
+        console.error(
+            "SENTINEL social analysis error:",
+            error
+        );
+
+        showToast(
+            error.message ||
+            "Social profile analysis failed.",
+            "!"
+        );
+
+    } finally {
+
+        setButtonLoading(
+            button,
+            false
+        );
+
+        hide(progress);
+    }
+}
+
+$("analyze-social-btn")?.addEventListener(
+    "click",
+    analyzeSocialProfile
+);
+
+$("social-profile-url")?.addEventListener(
+    "keydown",
+    event => {
+
+        if (event.key === "Enter") {
+
+            event.preventDefault();
+
+            analyzeSocialProfile();
+        }
+    }
+);
+
+
+/* =========================================================
+   SOCIAL SCREENSHOT ANALYZER
+========================================================= */
+
+async function analyzeSocialScreenshot() {
+
+    const fileInput =
+        $("social-screenshot");
+
+    const button =
+        $("social-screenshot-btn");
+
+    if (!fileInput || !button) return;
+
+    const file =
+        fileInput.files?.[0];
+
+    if (!file) {
+
+        showToast(
+            "Select a screenshot first.",
+            "!"
+        );
+
+        return;
+    }
+
+    setButtonLoading(
+        button,
+        true,
+        "PROCESSING..."
+    );
+
+    try {
+
+        const formData =
+            new FormData();
+
+        formData.append(
+            "screenshot",
+            file
+        );
+
+        const response =
+            await fetch(
+                "/analyze-social-screenshot",
+                {
+                    method: "POST",
+                    body: formData
+                }
+            );
+
+        let result;
+
+        try {
+            result =
+                await response.json();
+        } catch {
+            throw new Error(
+                "Invalid server response."
+            );
+        }
+
+        if (!response.ok) {
+
+            throw new Error(
+                result.error ||
+                "Screenshot analysis failed."
+            );
+        }
+
+        renderRiskResult(
+            "social",
+            result
+        );
+
+        showToast(
+            "Screenshot analysis complete.",
+            result.level === "LOW"
+                ? "✓"
+                : "!"
+        );
+
+    } catch (error) {
+
+        console.error(
+            "SENTINEL screenshot error:",
+            error
+        );
+
+        showToast(
+            error.message ||
+            "Screenshot analysis failed.",
+            "!"
+        );
+
+    } finally {
+
+        setButtonLoading(
+            button,
+            false
+        );
+    }
+}
+
+
+/* =========================================================
+   FILE INPUT PREVIEW
+========================================================= */
+
+$("social-screenshot")?.addEventListener(
+    "change",
+    event => {
+
+        const file =
+            event.target.files?.[0];
+
+        if (!file) return;
+
+        const allowed = [
+            "image/png",
+            "image/jpeg",
+            "image/webp"
+        ];
+
+        if (
+            file.type &&
+            !allowed.includes(file.type)
+        ) {
+
+            showToast(
+                "Please select a PNG, JPG or WEBP image.",
+                "!"
+            );
+
+            event.target.value = "";
+
+            return;
+        }
+
+        const maxSize =
+            10 * 1024 * 1024;
+
+        if (file.size > maxSize) {
+
+            showToast(
+                "Image is too large. Maximum size is 10 MB.",
+                "!"
+            );
+
+            event.target.value = "";
+
+            return;
+        }
+
+        showToast(
+            `Screenshot selected: ${file.name}`,
+            "✓"
+        );
+    }
+);
+
+$("social-screenshot-btn")?.addEventListener(
+    "click",
+    analyzeSocialScreenshot
+);
+
+
+/* =========================================================
+   SAMPLE URL BUTTONS
+========================================================= */
+
+function fillWebsiteURL(url) {
+
+    const input =
+        $("website-url");
+
+    if (!input) return;
+
+    input.value = url;
+
+    input.focus();
+
+    showToast(
+        "Sample URL loaded.",
+        "✓"
+    );
+}
+
+document
+    .querySelectorAll(
+        "[data-sample-url]"
+    )
+    .forEach(button => {
+
+        button.addEventListener(
+            "click",
+            () => {
+
+                fillWebsiteURL(
+                    button.dataset.sampleUrl
+                );
+            }
+        );
+    });
+
+
+/* =========================================================
+   COPY RESULT
+========================================================= */
+
+function copyText(text) {
+
+    if (!text) return;
+
+    if (
+        navigator.clipboard &&
+        navigator.clipboard.writeText
+    ) {
+
+        navigator.clipboard
+            .writeText(text)
+            .then(() => {
+
+                showToast(
+                    "Copied to clipboard.",
+                    "✓"
+                );
+
+            })
+            .catch(() => {
+
+                showToast(
+                    "Unable to copy.",
+                    "!"
+                );
+            });
+
+        return;
+    }
+
+    const textarea =
+        document.createElement("textarea");
+
+    textarea.value = text;
+
+    textarea.style.position =
+        "fixed";
+
+    textarea.style.opacity =
+        "0";
+
+    document.body.appendChild(
+        textarea
+    );
+
+    textarea.select();
+
+    try {
+
+        document.execCommand("copy");
+
+        showToast(
+            "Copied to clipboard.",
+            "✓"
+        );
+
+    } catch {
+
+        showToast(
+            "Unable to copy.",
+            "!"
+        );
+    }
+
+    textarea.remove();
+}
+
+document
+    .querySelectorAll(
+        "[data-copy]"
+    )
+    .forEach(button => {
+
+        button.addEventListener(
+            "click",
+            () => {
+
+                copyText(
+                    button.dataset.copy
+                );
+            }
+        );
+    });
+
+
+/* =========================================================
+   NAVIGATION
+========================================================= */
+
+document
+    .querySelectorAll(
+        "[data-section]"
+    )
+    .forEach(link => {
+
+        link.addEventListener(
+            "click",
+            event => {
+
+                const targetId =
+                    link.dataset.section;
+
+                const target =
+                    $(targetId);
+
+                if (!target) return;
+
+                event.preventDefault();
+
+                target.scrollIntoView({
+                    behavior: "smooth",
+                    block: "start"
+                });
+            }
+        );
+    });
+
+
+/* =========================================================
+   MOBILE MENU
+========================================================= */
+
+const menuButton =
+    $("menu-toggle");
+
+const mobileMenu =
+    $("mobile-menu");
+
+menuButton?.addEventListener(
+    "click",
+    () => {
+
+        if (!mobileMenu) return;
+
+        mobileMenu.classList.toggle(
+            "open"
+        );
+
+        menuButton.classList.toggle(
+            "active"
+        );
+    }
+);
+
+document
+    .querySelectorAll(
+        "#mobile-menu a"
+    )
+    .forEach(link => {
+
+        link.addEventListener(
+            "click",
+            () => {
+
+                mobileMenu?.classList.remove(
+                    "open"
+                );
+
+                menuButton?.classList.remove(
+                    "active"
+                );
+            }
+        );
+    });
+
+
+/* =========================================================
+   CYBER GAME / QUIZ
+========================================================= */
+
+let quizQuestions = [];
+let currentQuizIndex = 0;
+let quizScore = 0;
+let quizAnswered = false;
+
+async function loadQuiz() {
+
+    try {
+
+        const response =
+            await fetch(
+                "/quiz"
+            );
+
+        if (!response.ok) {
+            throw new Error(
+                "Quiz unavailable."
+            );
+        }
+
+        const data =
+            await response.json();
+
+        if (
+            Array.isArray(data)
+        ) {
+            quizQuestions = data;
+        } else if (
+            Array.isArray(data.questions)
+        ) {
+            quizQuestions =
+                data.questions;
+        }
+
+        currentQuizIndex = 0;
+        quizScore = 0;
+
+        renderQuiz();
+
+    } catch (error) {
+
+        console.error(
+            "SENTINEL quiz error:",
+            error
+        );
+
+        showToast(
+            "Cyber game is currently unavailable.",
+            "!"
+        );
+    }
+}
+
+function renderQuiz() {
+
+    const questionBox =
+        $("quiz-question");
+
+    const optionsBox =
+        $("quiz-options");
+
+    const scoreBox =
+        $("quiz-score");
+
+    if (
+        !questionBox ||
+        !optionsBox
+    ) {
+        return;
+    }
+
+    if (
+        !quizQuestions.length
+    ) {
+
+        questionBox.textContent =
+            "No quiz questions available.";
+
+        optionsBox.innerHTML = "";
+
+        return;
+    }
+
+    if (
+        currentQuizIndex >=
+        quizQuestions.length
+    ) {
+
+        questionBox.textContent =
+            "Quiz complete!";
+
+        optionsBox.innerHTML = `
+            <div class="quiz-final-score">
+                Final score:
+                <strong>
+                    ${quizScore}
+                </strong>
+            </div>
+        `;
+
+        if (scoreBox) {
+            scoreBox.textContent =
+                quizScore;
+        }
+
+        return;
+    }
+
+    const question =
+        quizQuestions[
+            currentQuizIndex
+        ];
+
+    quizAnswered = false;
+
+    questionBox.textContent =
+        question.question ||
+        question.text ||
+        "Question";
+
+    const options =
+        Array.isArray(question.options)
+            ? question.options
+            : [];
+
+    optionsBox.innerHTML =
+        options.map(
+            (option, index) => `
+                <button
+                    type="button"
+                    class="quiz-option"
+                    data-quiz-index="${index}"
+                >
+                    ${escapeHTML(option)}
+                </button>
+            `
+        ).join("");
+
+    optionsBox
+        .querySelectorAll(
+            ".quiz-option"
+        )
+        .forEach(button => {
+
+            button.addEventListener(
+                "click",
+                () => {
+
+                    answerQuiz(
+                        Number(
+                            button.dataset.quizIndex
+                        )
+                    );
+                }
+            );
+        });
+
+    if (scoreBox) {
+        scoreBox.textContent =
+            quizScore;
+    }
+}
+
+function answerQuiz(index) {
+
+    if (quizAnswered) return;
+
+    const question =
+        quizQuestions[
+            currentQuizIndex
+        ];
+
+    if (!question) return;
+
+    quizAnswered = true;
+
+    const correct =
+        Number(
+            question.correct_answer ??
+            question.correct ??
+            question.answer
+        );
+
+    const optionButtons =
+        document.querySelectorAll(
+            ".quiz-option"
+        );
+
+    optionButtons.forEach(
+        button => {
+
+            button.disabled = true;
+        }
+    );
+
+    if (index === correct) {
+
+        quizScore++;
+
+        const selected =
+            document.querySelector(
+                `[data-quiz-index="${index}"]`
+            );
+
+        selected?.classList.add(
+            "correct"
+        );
+
+        showToast(
+            "Correct! Good cyber awareness.",
+            "✓"
+        );
+
+    } else {
+
+        const selected =
+            document.querySelector(
+                `[data-quiz-index="${index}"]`
+            );
+
+        selected?.classList.add(
+            "wrong"
+        );
+
+        const correctButton =
+            document.querySelector(
+                `[data-quiz-index="${correct}"]`
+            );
+
+        correctButton?.classList.add(
+            "correct"
+        );
+
+        showToast(
+            "Wrong answer. Stay alert online!",
+            "!"
+        );
+    }
+
+    const scoreBox =
+        $("quiz-score");
+
+    if (scoreBox) {
+        scoreBox.textContent =
+            quizScore;
+    }
+
+    setTimeout(
+        () => {
+
+            currentQuizIndex++;
+
+            renderQuiz();
+
+        },
+        900
+    );
+}
+
+$("start-quiz-btn")?.addEventListener(
+    "click",
+    loadQuiz
+);
+
+$("quiz-start")?.addEventListener(
+    "click",
+    loadQuiz
+);
+
+
+/* =========================================================
+   INITIALIZATION
+========================================================= */
+
+document.addEventListener(
+    "DOMContentLoaded",
+    () => {
+
+        console.log(
+            "SENTINEL frontend initialized."
+        );
+
+        const progress =
+            $("website-progress");
+
+        if (progress) {
+            hide(progress);
+        }
+
+        const socialProgress =
+            $("social-progress");
+
+        if (socialProgress) {
+            hide(socialProgress);
+        }
+    }
+);
+/* =========================================================
+   CYBER AI COPILOT
+========================================================= */
+
+async function sendAIMessage() {
+
+    const input =
+        $("ai-input") ||
+        $("chat-input");
+
+    const button =
+        $("ai-send-btn") ||
+        $("send-ai-btn");
+
+    const messages =
+        $("ai-chat-messages") ||
+        $("chat-messages");
+
+    if (!input) return;
+
+    const message =
+        input.value.trim();
+
+    if (!message) {
+        input.focus();
+        return;
+    }
+
+    if (button) {
+        setButtonLoading(
+            button,
+            true,
+            "THINKING..."
+        );
+    }
+
+    appendAIMessage(
+        messages,
+        message,
+        "user"
+    );
+
+    input.value = "";
+
+    try {
+
+        const result =
+            await postJSON(
+                "/api/ai-chat",
+                {
+                    message: message
+                },
+                20000
+            );
+
+        const reply =
+            result.reply ||
+            result.response ||
+            result.message ||
+            "I couldn't generate a response.";
+
+        appendAIMessage(
+            messages,
+            reply,
+            "ai"
+        );
+
+    } catch (error) {
+
+        console.error(
+            "SENTINEL AI error:",
+            error
+        );
+
+        appendAIMessage(
+            messages,
+            "I'm currently unable to connect to the cyber AI service. Please try again.",
+            "ai"
+        );
+
+    } finally {
+
+        if (button) {
+            setButtonLoading(
+                button,
+                false
+            );
+        }
+    }
+}
+
+function appendAIMessage(
+    container,
+    text,
+    type
+) {
+
+    if (!container) return;
+
+    const message =
+        document.createElement("div");
+
+    message.className =
+        `ai-message ${type}`;
+
+    message.textContent =
+        text;
+
+    container.appendChild(
+        message
+    );
+
+    container.scrollTop =
+        container.scrollHeight;
+}
+
+$("ai-send-btn")?.addEventListener(
+    "click",
+    sendAIMessage
+);
+
+$("send-ai-btn")?.addEventListener(
+    "click",
+    sendAIMessage
+);
+
+$("ai-input")?.addEventListener(
+    "keydown",
+    event => {
+
+        if (
+            event.key === "Enter" &&
+            !event.shiftKey
+        ) {
+
+            event.preventDefault();
+
+            sendAIMessage();
+        }
+    }
+);
+
+$("chat-input")?.addEventListener(
+    "keydown",
+    event => {
+
+        if (
+            event.key === "Enter" &&
+            !event.shiftKey
+        ) {
+
+            event.preventDefault();
+
+            sendAIMessage();
+        }
+    }
+);
+
+
+/* =========================================================
+   AI BALL / CHAT POPUP
+========================================================= */
+
+const aiBall =
+    $("ai-ball");
+
+const aiPopup =
+    $("ai-chat-popup");
+
+function toggleAIChat() {
+
+    if (!aiPopup) return;
+
+    aiPopup.classList.toggle(
+        "open"
+    );
+
+    aiPopup.classList.toggle(
+        "show"
+    );
+
+    if (
+        aiPopup.classList.contains("open") ||
+        aiPopup.classList.contains("show")
+    ) {
+
+        const input =
+            $("ai-input") ||
+            $("chat-input");
+
+        setTimeout(
+            () => input?.focus(),
+            100
+        );
+    }
+}
+
+aiBall?.addEventListener(
+    "click",
+    toggleAIChat
+);
+
+$("ai-close")?.addEventListener(
+    "click",
+    () => {
+
+        aiPopup?.classList.remove(
+            "open",
+            "show"
+        );
+    }
+);
+
+$("close-ai-chat")?.addEventListener(
+    "click",
+    () => {
+
+        aiPopup?.classList.remove(
+            "open",
+            "show"
+        );
+    }
+);
+
+
+/* =========================================================
+   AWARENESS SEARCH
+========================================================= */
+
+function filterAwareness() {
+
+    const input =
+        $("awareness-search");
+
+    if (!input) return;
+
+    const query =
+        input.value
+            .trim()
+            .toLowerCase();
+
+    const cards =
+        document.querySelectorAll(
+            "[data-awareness]"
+        );
+
+    cards.forEach(card => {
+
+        const text =
+            card.textContent
+                .toLowerCase();
+
+        card.style.display =
+            !query ||
+            text.includes(query)
+                ? ""
+                : "none";
+    });
+}
+
+$("awareness-search")?.addEventListener(
+    "input",
+    filterAwareness
+);
+
+
+/* =========================================================
+   DASHBOARD COUNTERS
+========================================================= */
+
+function animateCounter(
+    element,
+    target
+) {
+
+    if (!element) return;
+
+    const numericTarget =
+        Number(target) || 0;
+
+    const duration = 900;
+
+    const startTime =
+        performance.now();
+
+    function update(now) {
+
+        const progress =
+            Math.min(
+                1,
+                (now - startTime) /
+                duration
+            );
+
+        const eased =
+            1 -
+            Math.pow(
+                1 - progress,
+                3
+            );
+
+        const value =
+            Math.round(
+                numericTarget * eased
+            );
+
+        element.textContent =
+            value.toLocaleString();
+
+        if (progress < 1) {
+            requestAnimationFrame(
+                update
+            );
+        }
+    }
+
+    requestAnimationFrame(
+        update
+    );
+}
+
+function updateDashboard(
+    data
+) {
+
+    if (!data) return;
+
+    const scans =
+        data.scans ??
+        data.total_scans;
+
+    const threats =
+        data.threats ??
+        data.threats_detected;
+
+    const safe =
+        data.safe ??
+        data.safe_scans;
+
+    if (
+        scans !== undefined
+    ) {
+
+        animateCounter(
+            $("dashboard-scans"),
+            scans
+        );
+    }
+
+    if (
+        threats !== undefined
+    ) {
+
+        animateCounter(
+            $("dashboard-threats"),
+            threats
+        );
+    }
+
+    if (
+        safe !== undefined
+    ) {
+
+        animateCounter(
+            $("dashboard-safe"),
+            safe
+        );
+    }
+}
+
+
+/* =========================================================
+   DASHBOARD LOAD
+========================================================= */
+
+async function loadDashboard() {
+
+    try {
+
+        const response =
+            await fetch(
+                "/dashboard"
+            );
+
+        if (!response.ok) {
+            return;
+        }
+
+        const data =
+            await response.json();
+
+        updateDashboard(
+            data
+        );
+
+    } catch (error) {
+
+        console.warn(
+            "Dashboard data unavailable:",
+            error
+        );
+    }
+}
+
+
+/* =========================================================
+   SYSTEM STATUS
+========================================================= */
+
+async function checkSystemStatus() {
+
+    const status =
+        $("system-status");
+
+    if (!status) return;
+
+    try {
+
+        const response =
+            await fetch(
+                "/health",
+                {
+                    method: "GET",
+                    cache: "no-store"
+                }
+            );
+
+        if (response.ok) {
+
+            status.textContent =
+                "SYSTEM ONLINE";
+
+            status.classList.add(
+                "online"
+            );
+
+            status.classList.remove(
+                "offline"
+            );
+
+        } else {
+
+            throw new Error(
+                "Health check failed"
+            );
+        }
+
+    } catch {
+
+        status.textContent =
+            "SYSTEM OFFLINE";
+
+        status.classList.add(
+            "offline"
+        );
+
+        status.classList.remove(
+            "online"
+        );
+    }
+}
+
+
+/* =========================================================
+   NATIONAL CYBER CRIME HELPLINE
+========================================================= */
+
+function callCyberCrimeHelpline() {
+
+    window.location.href =
+        "tel:1930";
+}
+
+$("cyber-crime-call")?.addEventListener(
+    "click",
+    callCyberCrimeHelpline
+);
+
+$("call-cyber-crime")?.addEventListener(
+    "click",
+    callCyberCrimeHelpline
+);
+
+
+/* =========================================================
+   EXTERNAL LINK SAFETY
+========================================================= */
+
+document
+    .querySelectorAll(
+        'a[target="_blank"]'
+    )
+    .forEach(link => {
+
+        const rel =
+            link.getAttribute("rel") ||
+            "";
+
+        if (
+            !rel.includes("noopener")
+        ) {
+
+            link.setAttribute(
+                "rel",
+                `${rel} noopener noreferrer`
+                    .trim()
+            );
+        }
+    });
+
+
+/* =========================================================
+   SCROLL REVEAL
+========================================================= */
+
+function initRevealAnimations() {
+
+    const elements =
+        document.querySelectorAll(
+            ".reveal, [data-reveal]"
+        );
+
+    if (!elements.length) return;
+
+    if (
+        !("IntersectionObserver" in window)
+    ) {
+
+        elements.forEach(
+            element => {
+
+                element.classList.add(
+                    "visible"
+                );
+            }
+        );
+
+        return;
+    }
+
+    const observer =
+        new IntersectionObserver(
+            entries => {
+
+                entries.forEach(
+                    entry => {
+
+                        if (
+                            entry.isIntersecting
+                        ) {
+
+                            entry.target.classList.add(
+                                "visible"
+                            );
+
+                            observer.unobserve(
+                                entry.target
+                            );
+                        }
+                    }
+                );
+            },
+            {
+                threshold: 0.12
+            }
+        );
+
+    elements.forEach(
+        element =>
+            observer.observe(element)
+    );
+}
+
+
+/* =========================================================
+   ACTIVE NAVIGATION
+========================================================= */
+
+function initActiveNavigation() {
+
+    const sections =
+        document.querySelectorAll(
+            "section[id]"
+        );
+
+    const links =
+        document.querySelectorAll(
+            'a[href^="#"]'
+        );
+
+    if (
+        !sections.length ||
+        !links.length
+    ) {
+        return;
+    }
+
+    if (
+        !("IntersectionObserver" in window)
+    ) {
+        return;
+    }
+
+    const observer =
+        new IntersectionObserver(
+            entries => {
+
+                entries.forEach(
+                    entry => {
+
+                        if (
+                            !entry.isIntersecting
+                        ) {
+                            return;
+                        }
+
+                        const id =
+                            entry.target.id;
+
+                        links.forEach(
+                            link => {
+
+                                const active =
+                                    link.getAttribute(
+                                        "href"
+                                    ) ===
+                                    `#${id}`;
+
+                                link.classList.toggle(
+                                    "active",
+                                    active
+                                );
+                            }
+                        );
+                    }
+                );
+            },
+            {
+                rootMargin:
+                    "-35% 0px -55% 0px"
+            }
+        );
+
+    sections.forEach(
+        section =>
+            observer.observe(section)
+    );
+}
+
+
+/* =========================================================
+   BACK TO TOP
+========================================================= */
+
+function initBackToTop() {
+
+    const button =
+        $("back-to-top");
+
+    if (!button) return;
+
+    window.addEventListener(
+        "scroll",
+        () => {
+
+            button.classList.toggle(
+                "show",
+                window.scrollY > 500
+            );
+        },
+        {
+            passive: true
+        }
+    );
+
+    button.addEventListener(
+        "click",
+        () => {
+
+            window.scrollTo({
+                top: 0,
+                behavior: "smooth"
+            });
+        }
+    );
+}
+
+
+/* =========================================================
+   PAGE INITIALIZATION
+========================================================= */
+
+document.addEventListener(
+    "DOMContentLoaded",
+    () => {
+
+        console.log(
+            "SENTINEL frontend initialized."
+        );
+
+        initRevealAnimations();
+
+        initActiveNavigation();
+
+        initBackToTop();
+
+        checkSystemStatus();
+
+        loadDashboard();
+
+        /*
+         * Do not repeatedly poll the backend.
+         * A single health check keeps the frontend
+         * lightweight and avoids unnecessary requests.
+         */
+
+        const websiteProgress =
+            $("website-progress");
+
+        if (websiteProgress) {
+            hide(websiteProgress);
+        }
+
+        const socialProgress =
+            $("social-progress");
+
+        if (socialProgress) {
+            hide(socialProgress);
+        }
+    }
+);
+
+
+/* =========================================================
+   GLOBAL ERROR HANDLING
+========================================================= */
+
+window.addEventListener(
+    "error",
+    event => {
+
+        console.error(
+            "SENTINEL frontend error:",
+            event.error ||
+            event.message
+        );
+    }
+);
+
+window.addEventListener(
+    "unhandledrejection",
+    event => {
+
+        console.error(
+            "SENTINEL unhandled promise rejection:",
+            event.reason
+        );
+    }
+);
+
+
+/* =========================================================
+   SENTINEL READY
+========================================================= */
+
+window.SENTINEL = {
+    version: "2.0",
+    scanWebsite,
+    scanMessage,
+    analyzeSocialProfile,
+    analyzeSocialScreenshot,
+    sendAIMessage,
+    loadDashboard,
+    checkSystemStatus
+};
+
+console.log(
+    "🛡️ SENTINEL security system ready."
+);
