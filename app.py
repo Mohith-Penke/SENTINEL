@@ -24,11 +24,12 @@ PORT = int(os.environ.get("PORT", 5000))
 # =========================================================
 
 def risk_level(score):
-    if score >= 80:
-        return "CRITICAL"
-    if score >= 60:
+    # Internal/raw severity thresholds. The displayed score is mapped
+    # separately so the UI stays inside the requested 30-100 range.
+    score = max(0, min(100, float(score or 0)))
+    if score >= 61:
         return "HIGH"
-    if score >= 35:
+    if score >= 36:
         return "MEDIUM"
     return "LOW"
 
@@ -78,9 +79,29 @@ def actions(level):
     }[level]
 
 
+def display_risk_score(raw_score):
+    """Map raw evidence severity to the requested UI score bands.
+
+    LOW: 30-40
+    MEDIUM: 41-70
+    HIGH: 71-100
+
+    The mapping is based on the actual evidence score; it does not use
+    fixed values for all websites.
+    """
+    raw = max(0.0, min(100.0, float(raw_score or 0)))
+
+    if raw <= 35.0:
+        return int(round(30.0 + (raw / 35.0) * 10.0))
+    if raw <= 60.0:
+        return int(round(41.0 + ((raw - 36.0) / 24.0) * 29.0))
+    return int(round(71.0 + ((raw - 61.0) / 39.0) * 29.0))
+
+
 def make_result(score, reasons):
-    score = max(0, min(100, int(score)))
-    level = risk_level(score)
+    raw_score = max(0.0, min(100.0, float(score or 0)))
+    score = display_risk_score(raw_score)
+    level = risk_level(raw_score)
 
     return {
         "score": score,
@@ -232,7 +253,7 @@ def check_ssl_certificate(url):
     context.verify_mode = ssl.CERT_REQUIRED
 
     try:
-        with socket.create_connection((host, port), timeout=7) as raw_socket:
+        with socket.create_connection((host, port), timeout=4) as raw_socket:
             with context.wrap_socket(raw_socket, server_hostname=host) as tls_socket:
                 cert = tls_socket.getpeercert()
 
@@ -371,9 +392,9 @@ def _visual_similarity_playwright(target_url, reference_url):
                     page.goto(
                         page_url,
                         wait_until="domcontentloaded",
-                        timeout=15000,
+                        timeout=8000,
                     )
-                    page.wait_for_timeout(1200)
+                    page.wait_for_timeout(500)
                     raw = page.screenshot(
                         type="png",
                         full_page=False,
@@ -601,7 +622,20 @@ def scan_url(url):
     # ---------------------------------------------------------
     # ROUND 2: SSL certificate validity
     # ---------------------------------------------------------
-    ssl_result = check_ssl_certificate(url)
+    try:
+        ssl_result = check_ssl_certificate(url)
+    except Exception as exc:
+        ssl_result = {
+            "checked": True,
+            "https": parsed.scheme.lower() == "https",
+            "valid": False,
+            "hostname_match": False,
+            "trusted": False,
+            "expired": None,
+            "expires_at": None,
+            "issuer": None,
+            "error": f"TLS certificate check failed: {exc.__class__.__name__}."
+        }
 
     if parsed.scheme.lower() == "https":
         if ssl_result.get("valid"):
@@ -614,7 +648,21 @@ def scan_url(url):
     # ---------------------------------------------------------
     # ROUND 2: rendered visual similarity / cloning check
     # ---------------------------------------------------------
-    visual_result = check_visual_similarity(url)
+    try:
+        visual_result = check_visual_similarity(url)
+    except Exception as exc:
+        # Visual analysis is an optional Round-2 signal. Never let a
+        # missing browser/runtime break the normal URL scanner.
+        visual_result = {
+            "checked": False,
+            "available": False,
+            "brand": None,
+            "reference": None,
+            "similarity_percent": None,
+            "cloning_indicator": False,
+            "method": "browser-rendered screenshot",
+            "reason": f"Visual analysis unavailable: {exc.__class__.__name__}."
+        }
 
     if visual_result.get("cloning_indicator"):
         score += 30
@@ -2332,4 +2380,3 @@ if __name__ == "__main__":
         port=PORT,
         debug=False
     )
-    
