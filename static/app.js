@@ -1,5 +1,6 @@
 /* =========================================================
    SENTINEL — COMPLETE APPLICATION JAVASCRIPT
+   FULL REPLACEMENT VERSION
 ========================================================= */
 
 "use strict";
@@ -52,11 +53,9 @@ function setButtonLoading(button, loading, text = "LOADING...") {
 ========================================================= */
 
 function showToast(message, icon = "!") {
-
     let toast = $("sentinel-toast");
 
     if (!toast) {
-
         toast = document.createElement("div");
         toast.id = "sentinel-toast";
 
@@ -88,7 +87,6 @@ function showToast(message, icon = "!") {
 ========================================================= */
 
 function escapeHTML(value) {
-
     return String(value ?? "")
         .replace(/&/g, "&amp;")
         .replace(/</g, "&lt;")
@@ -102,7 +100,6 @@ function escapeHTML(value) {
 ========================================================= */
 
 async function postJSON(url, data, timeoutMs = 30000) {
-
     const controller = new AbortController();
 
     const timer = setTimeout(() => {
@@ -110,7 +107,6 @@ async function postJSON(url, data, timeoutMs = 30000) {
     }, timeoutMs);
 
     try {
-
         const response = await fetch(url, {
             method: "POST",
             headers: {
@@ -139,7 +135,6 @@ async function postJSON(url, data, timeoutMs = 30000) {
         return result;
 
     } catch (error) {
-
         if (error.name === "AbortError") {
             throw new Error(
                 "Request timed out. Please try again."
@@ -149,7 +144,6 @@ async function postJSON(url, data, timeoutMs = 30000) {
         throw error;
 
     } finally {
-
         clearTimeout(timer);
     }
 }
@@ -159,20 +153,34 @@ async function postJSON(url, data, timeoutMs = 30000) {
 ========================================================= */
 
 function normalizeRiskLevel(level) {
-
     const value = String(level || "")
         .trim()
         .toUpperCase();
 
-    if (value === "HIGH") return "HIGH";
-    if (value === "MEDIUM") return "MEDIUM";
-    if (value === "LOW") return "LOW";
+    if (
+        value === "HIGH" ||
+        value === "CRITICAL"
+    ) {
+        return "HIGH";
+    }
+
+    if (
+        value === "MEDIUM" ||
+        value === "MEDIUM-TO-HIGH" ||
+        value === "MEDIUM_TO_HIGH" ||
+        value === "MEDIUM HIGH"
+    ) {
+        return "MEDIUM";
+    }
+
+    if (value === "LOW") {
+        return "LOW";
+    }
 
     return "UNKNOWN";
 }
 
 function getRiskClass(level) {
-
     const normalized = normalizeRiskLevel(level);
 
     if (normalized === "HIGH") {
@@ -191,11 +199,139 @@ function getRiskClass(level) {
 }
 
 /* =========================================================
+   DANGER SOUND
+========================================================= */
+
+let sentinelAudioContext = null;
+
+function playDangerSound() {
+    try {
+        const AudioContext =
+            window.AudioContext ||
+            window.webkitAudioContext;
+
+        if (!AudioContext) return;
+
+        if (!sentinelAudioContext) {
+            sentinelAudioContext = new AudioContext();
+        }
+
+        const ctx = sentinelAudioContext;
+
+        if (ctx.state === "suspended") {
+            ctx.resume().catch(() => {});
+        }
+
+        const oscillator = ctx.createOscillator();
+        const gain = ctx.createGain();
+
+        oscillator.type = "sawtooth";
+        oscillator.frequency.setValueAtTime(
+            440,
+            ctx.currentTime
+        );
+
+        oscillator.frequency.exponentialRampToValueAtTime(
+            180,
+            ctx.currentTime + 0.45
+        );
+
+        gain.gain.setValueAtTime(
+            0.0001,
+            ctx.currentTime
+        );
+
+        gain.gain.exponentialRampToValueAtTime(
+            0.12,
+            ctx.currentTime + 0.03
+        );
+
+        gain.gain.exponentialRampToValueAtTime(
+            0.0001,
+            ctx.currentTime + 0.5
+        );
+
+        oscillator.connect(gain);
+        gain.connect(ctx.destination);
+
+        oscillator.start();
+        oscillator.stop(ctx.currentTime + 0.5);
+
+    } catch (error) {
+        console.warn(
+            "SENTINEL danger sound unavailable:",
+            error
+        );
+    }
+}
+
+function playSuccessSound() {
+    try {
+        const AudioContext =
+            window.AudioContext ||
+            window.webkitAudioContext;
+
+        if (!AudioContext) return;
+
+        if (!sentinelAudioContext) {
+            sentinelAudioContext = new AudioContext();
+        }
+
+        const ctx = sentinelAudioContext;
+
+        if (ctx.state === "suspended") {
+            ctx.resume().catch(() => {});
+        }
+
+        const oscillator = ctx.createOscillator();
+        const gain = ctx.createGain();
+
+        oscillator.type = "sine";
+
+        oscillator.frequency.setValueAtTime(
+            520,
+            ctx.currentTime
+        );
+
+        oscillator.frequency.exponentialRampToValueAtTime(
+            760,
+            ctx.currentTime + 0.16
+        );
+
+        gain.gain.setValueAtTime(
+            0.0001,
+            ctx.currentTime
+        );
+
+        gain.gain.exponentialRampToValueAtTime(
+            0.08,
+            ctx.currentTime + 0.02
+        );
+
+        gain.gain.exponentialRampToValueAtTime(
+            0.0001,
+            ctx.currentTime + 0.22
+        );
+
+        oscillator.connect(gain);
+        gain.connect(ctx.destination);
+
+        oscillator.start();
+        oscillator.stop(ctx.currentTime + 0.22);
+
+    } catch (error) {
+        console.warn(
+            "SENTINEL success sound unavailable:",
+            error
+        );
+    }
+}
+
+/* =========================================================
    SSL DISPLAY
 ========================================================= */
 
 function renderSSLDetails(ssl) {
-
     if (!ssl || typeof ssl !== "object") {
         return `
             <div class="security-check-result">
@@ -208,7 +344,9 @@ function renderSSLDetails(ssl) {
     const https = ssl.https === true;
 
     const statusClass =
-        valid ? "security-safe" : "security-danger";
+        valid
+            ? "security-safe"
+            : "security-danger";
 
     const statusText =
         valid
@@ -220,7 +358,9 @@ function renderSSLDetails(ssl) {
     rows.push(`
         <div class="security-detail-row">
             <span>HTTPS</span>
-            <strong>${https ? "Enabled" : "Not enabled"}</strong>
+            <strong>
+                ${https ? "Enabled" : "Not enabled"}
+            </strong>
         </div>
     `);
 
@@ -234,7 +374,6 @@ function renderSSLDetails(ssl) {
     `);
 
     if (typeof ssl.hostname_match !== "undefined") {
-
         rows.push(`
             <div class="security-detail-row">
                 <span>Hostname match</span>
@@ -246,7 +385,6 @@ function renderSSLDetails(ssl) {
     }
 
     if (typeof ssl.trusted !== "undefined") {
-
         rows.push(`
             <div class="security-detail-row">
                 <span>Trusted</span>
@@ -258,7 +396,6 @@ function renderSSLDetails(ssl) {
     }
 
     if (ssl.issuer) {
-
         rows.push(`
             <div class="security-detail-row">
                 <span>Issuer</span>
@@ -270,7 +407,6 @@ function renderSSLDetails(ssl) {
     }
 
     if (ssl.valid_from) {
-
         rows.push(`
             <div class="security-detail-row">
                 <span>Valid from</span>
@@ -282,7 +418,6 @@ function renderSSLDetails(ssl) {
     }
 
     if (ssl.expires_at) {
-
         rows.push(`
             <div class="security-detail-row">
                 <span>Valid until</span>
@@ -297,7 +432,6 @@ function renderSSLDetails(ssl) {
         typeof ssl.days_remaining !== "undefined" &&
         ssl.days_remaining !== null
     ) {
-
         rows.push(`
             <div class="security-detail-row">
                 <span>Days remaining</span>
@@ -309,7 +443,6 @@ function renderSSLDetails(ssl) {
     }
 
     if (ssl.tls_version) {
-
         rows.push(`
             <div class="security-detail-row">
                 <span>TLS</span>
@@ -321,7 +454,6 @@ function renderSSLDetails(ssl) {
     }
 
     if (ssl.cipher) {
-
         rows.push(`
             <div class="security-detail-row">
                 <span>Cipher</span>
@@ -333,7 +465,6 @@ function renderSSLDetails(ssl) {
     }
 
     if (ssl.error) {
-
         rows.push(`
             <div class="security-detail-row security-error">
                 <span>Details</span>
@@ -346,6 +477,7 @@ function renderSSLDetails(ssl) {
 
     return `
         <div class="ssl-security-card">
+
             <div class="ssl-status ${statusClass}">
                 ${statusText}
             </div>
@@ -353,6 +485,7 @@ function renderSSLDetails(ssl) {
             <div class="security-detail-list">
                 ${rows.join("")}
             </div>
+
         </div>
     `;
 }
@@ -362,9 +495,7 @@ function renderSSLDetails(ssl) {
 ========================================================= */
 
 function renderVisualSimilarity(visual) {
-
     if (!visual || typeof visual !== "object") {
-
         return `
             <div class="security-check-result">
                 Visual similarity check unavailable.
@@ -375,9 +506,9 @@ function renderVisualSimilarity(visual) {
     const checked = visual.checked === true;
 
     if (!checked) {
-
         return `
             <div class="visual-security-card">
+
                 <div class="visual-status">
                     Not checked
                 </div>
@@ -388,6 +519,7 @@ function renderVisualSimilarity(visual) {
                         "No comparable legitimate reference was available."
                     )}
                 </div>
+
             </div>
         `;
     }
@@ -456,9 +588,12 @@ function renderVisualSimilarity(visual) {
 ========================================================= */
 
 function renderRiskResult(prefix, result) {
-
     if (!result) {
-        showToast("No scan result received.", "!");
+        showToast(
+            "No scan result received.",
+            "!"
+        );
+
         return;
     }
 
@@ -469,14 +604,34 @@ function renderRiskResult(prefix, result) {
         console.warn(
             `SENTINEL: ${prefix}-result element not found.`
         );
+
         return;
     }
 
     const score =
-        Number(result.score ?? result.risk_score ?? 0);
+        Number(
+            result.score ??
+            result.risk_score ??
+            0
+        );
+
+    const safeScore =
+        Math.max(
+            0,
+            Math.min(
+                100,
+                Number.isFinite(score)
+                    ? score
+                    : 0
+            )
+        );
 
     const level =
-        normalizeRiskLevel(result.level);
+        normalizeRiskLevel(
+            result.level ||
+            result.risk_level ||
+            result.risk
+        );
 
     const riskClass =
         getRiskClass(level);
@@ -484,6 +639,7 @@ function renderRiskResult(prefix, result) {
     const summary =
         result.summary ||
         result.message ||
+        result.description ||
         "Analysis completed.";
 
     const reasons =
@@ -513,8 +669,9 @@ function renderRiskResult(prefix, result) {
 
                 <div class="risk-score">
                     <span>Score</span>
+
                     <strong>
-                        ${escapeHTML(score)}/100
+                        ${escapeHTML(safeScore)}/100
                     </strong>
                 </div>
 
@@ -523,10 +680,7 @@ function renderRiskResult(prefix, result) {
             <div class="risk-meter">
                 <div
                     class="risk-meter-fill"
-                    style="width:${Math.max(
-                        0,
-                        Math.min(100, score)
-                    )}%"
+                    style="width:${safeScore}%"
                 ></div>
             </div>
 
@@ -536,48 +690,55 @@ function renderRiskResult(prefix, result) {
     `;
 
     if (reasons.length) {
-
         html += `
             <div class="risk-section">
-                <h4>Why SENTINEL flagged it</h4>
+
+                <h4>
+                    Why SENTINEL flagged it
+                </h4>
 
                 <ul class="risk-list">
+
                     ${reasons.map(reason => `
                         <li>
                             ${escapeHTML(reason)}
                         </li>
                     `).join("")}
+
                 </ul>
+
             </div>
         `;
     }
 
     if (actions.length) {
-
         html += `
             <div class="risk-section">
-                <h4>Recommended actions</h4>
+
+                <h4>
+                    Recommended actions
+                </h4>
 
                 <ul class="risk-list action-list">
+
                     ${actions.map(action => `
                         <li>
                             ${escapeHTML(action)}
                         </li>
                     `).join("")}
+
                 </ul>
+
             </div>
         `;
     }
 
-    /*
-       =====================================================
+    /* =====================================================
        ROUND-2 SECURITY CHECKS
        SSL + VISUAL SIMILARITY
-       =====================================================
-    */
+    ===================================================== */
 
     if (prefix === "website") {
-
         const ssl =
             result.ssl_check || {};
 
@@ -629,6 +790,12 @@ function renderRiskResult(prefix, result) {
 
     show(container);
 
+    if (level === "HIGH") {
+        playDangerSound();
+    } else if (level === "LOW") {
+        playSuccessSound();
+    }
+
     try {
         container.scrollIntoView({
             behavior: "smooth",
@@ -644,22 +811,35 @@ function renderRiskResult(prefix, result) {
 ========================================================= */
 
 async function scanWebsite() {
+    const input =
+        $("website-url");
 
-    const input = $("website-url");
-    const button = $("scan-website-btn");
-    const progress = $("website-progress");
+    const button =
+        $("scan-website-btn");
+
+    const progress =
+        $("website-progress");
 
     if (!input || !button) return;
 
-    const url = input.value.trim();
+    const url =
+        input.value.trim();
 
     if (!url) {
-        showToast("Enter a website URL first.", "!");
+        showToast(
+            "Enter a website URL first.",
+            "!"
+        );
+
         input.focus();
+
         return;
     }
 
-    hide($("website-result"));
+    hide(
+        $("website-result")
+    );
+
     show(progress);
 
     setButtonLoading(
@@ -675,17 +855,33 @@ async function scanWebsite() {
         $("website-progress-percent");
 
     try {
-
         const steps = [
-            ["Checking URL structure...", 20],
-            ["Checking suspicious indicators...", 40],
-            ["Checking SSL certificate...", 60],
-            ["Analyzing visual similarity...", 82],
-            ["Generating risk report...", 100]
+            [
+                "Checking URL structure...",
+                20
+            ],
+            [
+                "Checking suspicious indicators...",
+                40
+            ],
+            [
+                "Checking SSL certificate...",
+                60
+            ],
+            [
+                "Analyzing visual similarity...",
+                82
+            ],
+            [
+                "Generating risk report...",
+                100
+            ]
         ];
 
-        for (const [stage, value] of steps) {
-
+        for (
+            const [stage, value]
+            of steps
+        ) {
             setText(
                 "website-stages",
                 stage
@@ -707,7 +903,9 @@ async function scanWebsite() {
         const result =
             await postJSON(
                 "/scan",
-                { url: url },
+                {
+                    url: url
+                },
                 30000
             );
 
@@ -722,17 +920,22 @@ async function scanWebsite() {
             result
         );
 
+        const normalized =
+            normalizeRiskLevel(
+                result.level ||
+                result.risk_level
+            );
+
         showToast(
             `Website analysis complete: ${
                 result.level || "UNKNOWN"
             }`,
-            result.level === "LOW"
+            normalized === "LOW"
                 ? "✓"
                 : "!"
         );
 
     } catch (error) {
-
         console.error(
             "SENTINEL website scan error:",
             error
@@ -745,7 +948,6 @@ async function scanWebsite() {
         );
 
     } finally {
-
         setButtonLoading(
             button,
             false
@@ -763,21 +965,18 @@ $("scan-website-btn")?.addEventListener(
 $("website-url")?.addEventListener(
     "keydown",
     event => {
-
         if (event.key === "Enter") {
-
             event.preventDefault();
-
             scanWebsite();
         }
     }
 );
+
 /* =========================================================
    MESSAGE SCANNER
 ========================================================= */
 
 async function scanMessage() {
-
     const input =
         $("message-input") ||
         $("message-text");
@@ -798,7 +997,9 @@ async function scanMessage() {
             "Enter a message first.",
             "!"
         );
+
         input.focus();
+
         return;
     }
 
@@ -811,7 +1012,6 @@ async function scanMessage() {
     );
 
     try {
-
         const result =
             await postJSON(
                 "/scan-message",
@@ -832,17 +1032,22 @@ async function scanMessage() {
             result
         );
 
+        const normalized =
+            normalizeRiskLevel(
+                result.level ||
+                result.risk_level
+            );
+
         showToast(
             `Message analysis complete: ${
                 result.level || "UNKNOWN"
             }`,
-            result.level === "LOW"
+            normalized === "LOW"
                 ? "✓"
                 : "!"
         );
 
     } catch (error) {
-
         console.error(
             "SENTINEL message scan error:",
             error
@@ -855,7 +1060,6 @@ async function scanMessage() {
         );
 
     } finally {
-
         setButtonLoading(
             button,
             false
@@ -868,13 +1072,11 @@ $("scan-message-btn")?.addEventListener(
     scanMessage
 );
 
-
 /* =========================================================
    SOCIAL PROFILE ANALYZER
 ========================================================= */
 
 async function analyzeSocialProfile() {
-
     const input =
         $("social-profile-url");
 
@@ -890,7 +1092,6 @@ async function analyzeSocialProfile() {
         input.value.trim();
 
     if (!url) {
-
         showToast(
             "Enter a social profile URL first.",
             "!"
@@ -901,7 +1102,9 @@ async function analyzeSocialProfile() {
         return;
     }
 
-    hide($("social-result"));
+    hide(
+        $("social-result")
+    );
 
     show(progress);
 
@@ -912,7 +1115,6 @@ async function analyzeSocialProfile() {
     );
 
     try {
-
         const steps = [
             [
                 "Validating profile URL...",
@@ -932,21 +1134,20 @@ async function analyzeSocialProfile() {
             ]
         ];
 
+        const fill =
+            $("social-progress-fill");
+
+        const percent =
+            $("social-progress-percent");
+
         for (
             const [stage, value]
             of steps
         ) {
-
             setText(
                 "social-stages",
                 stage
             );
-
-            const fill =
-                $("social-progress-fill");
-
-            const percent =
-                $("social-progress-percent");
 
             if (fill) {
                 fill.style.width =
@@ -985,13 +1186,14 @@ async function analyzeSocialProfile() {
             `Social analysis complete: ${
                 result.level || "UNKNOWN"
             }`,
-            result.level === "LOW"
+            normalizeRiskLevel(
+                result.level
+            ) === "LOW"
                 ? "✓"
                 : "!"
         );
 
     } catch (error) {
-
         console.error(
             "SENTINEL social analysis error:",
             error
@@ -1004,7 +1206,6 @@ async function analyzeSocialProfile() {
         );
 
     } finally {
-
         setButtonLoading(
             button,
             false
@@ -1022,23 +1223,18 @@ $("analyze-social-btn")?.addEventListener(
 $("social-profile-url")?.addEventListener(
     "keydown",
     event => {
-
         if (event.key === "Enter") {
-
             event.preventDefault();
-
             analyzeSocialProfile();
         }
     }
 );
-
 
 /* =========================================================
    SOCIAL SCREENSHOT ANALYZER
 ========================================================= */
 
 async function analyzeSocialScreenshot() {
-
     const fileInput =
         $("social-screenshot");
 
@@ -1051,7 +1247,6 @@ async function analyzeSocialScreenshot() {
         fileInput.files?.[0];
 
     if (!file) {
-
         showToast(
             "Select a screenshot first.",
             "!"
@@ -1067,7 +1262,6 @@ async function analyzeSocialScreenshot() {
     );
 
     try {
-
         const formData =
             new FormData();
 
@@ -1097,9 +1291,9 @@ async function analyzeSocialScreenshot() {
         }
 
         if (!response.ok) {
-
             throw new Error(
                 result.error ||
+                result.message ||
                 "Screenshot analysis failed."
             );
         }
@@ -1111,13 +1305,14 @@ async function analyzeSocialScreenshot() {
 
         showToast(
             "Screenshot analysis complete.",
-            result.level === "LOW"
+            normalizeRiskLevel(
+                result.level
+            ) === "LOW"
                 ? "✓"
                 : "!"
         );
 
     } catch (error) {
-
         console.error(
             "SENTINEL screenshot error:",
             error
@@ -1130,14 +1325,12 @@ async function analyzeSocialScreenshot() {
         );
 
     } finally {
-
         setButtonLoading(
             button,
             false
         );
     }
 }
-
 
 /* =========================================================
    FILE INPUT PREVIEW
@@ -1146,7 +1339,6 @@ async function analyzeSocialScreenshot() {
 $("social-screenshot")?.addEventListener(
     "change",
     event => {
-
         const file =
             event.target.files?.[0];
 
@@ -1162,7 +1354,6 @@ $("social-screenshot")?.addEventListener(
             file.type &&
             !allowed.includes(file.type)
         ) {
-
             showToast(
                 "Please select a PNG, JPG or WEBP image.",
                 "!"
@@ -1177,7 +1368,6 @@ $("social-screenshot")?.addEventListener(
             10 * 1024 * 1024;
 
         if (file.size > maxSize) {
-
             showToast(
                 "Image is too large. Maximum size is 10 MB.",
                 "!"
@@ -1200,13 +1390,11 @@ $("social-screenshot-btn")?.addEventListener(
     analyzeSocialScreenshot
 );
 
-
 /* =========================================================
    SAMPLE URL BUTTONS
 ========================================================= */
 
 function fillWebsiteURL(url) {
-
     const input =
         $("website-url");
 
@@ -1227,11 +1415,9 @@ document
         "[data-sample-url]"
     )
     .forEach(button => {
-
         button.addEventListener(
             "click",
             () => {
-
                 fillWebsiteURL(
                     button.dataset.sampleUrl
                 );
@@ -1239,32 +1425,26 @@ document
         );
     });
 
-
 /* =========================================================
    COPY RESULT
 ========================================================= */
 
 function copyText(text) {
-
     if (!text) return;
 
     if (
         navigator.clipboard &&
         navigator.clipboard.writeText
     ) {
-
         navigator.clipboard
             .writeText(text)
             .then(() => {
-
                 showToast(
                     "Copied to clipboard.",
                     "✓"
                 );
-
             })
             .catch(() => {
-
                 showToast(
                     "Unable to copy.",
                     "!"
@@ -1292,7 +1472,6 @@ function copyText(text) {
     textarea.select();
 
     try {
-
         document.execCommand("copy");
 
         showToast(
@@ -1301,7 +1480,6 @@ function copyText(text) {
         );
 
     } catch {
-
         showToast(
             "Unable to copy.",
             "!"
@@ -1316,18 +1494,15 @@ document
         "[data-copy]"
     )
     .forEach(button => {
-
         button.addEventListener(
             "click",
             () => {
-
                 copyText(
                     button.dataset.copy
                 );
             }
         );
     });
-
 
 /* =========================================================
    NAVIGATION
@@ -1338,11 +1513,9 @@ document
         "[data-section]"
     )
     .forEach(link => {
-
         link.addEventListener(
             "click",
             event => {
-
                 const targetId =
                     link.dataset.section;
 
@@ -1361,7 +1534,6 @@ document
         );
     });
 
-
 /* =========================================================
    MOBILE MENU
 ========================================================= */
@@ -1375,7 +1547,6 @@ const mobileMenu =
 menuButton?.addEventListener(
     "click",
     () => {
-
         if (!mobileMenu) return;
 
         mobileMenu.classList.toggle(
@@ -1393,11 +1564,9 @@ document
         "#mobile-menu a"
     )
     .forEach(link => {
-
         link.addEventListener(
             "click",
             () => {
-
                 mobileMenu?.classList.remove(
                     "open"
                 );
@@ -1409,7 +1578,6 @@ document
         );
     });
 
-
 /* =========================================================
    CYBER GAME / QUIZ
 ========================================================= */
@@ -1420,12 +1588,13 @@ let quizScore = 0;
 let quizAnswered = false;
 
 async function loadQuiz() {
-
     try {
-
         const response =
             await fetch(
-                "/quiz"
+                "/quiz",
+                {
+                    cache: "no-store"
+                }
             );
 
         if (!response.ok) {
@@ -1437,24 +1606,24 @@ async function loadQuiz() {
         const data =
             await response.json();
 
-        if (
-            Array.isArray(data)
-        ) {
+        if (Array.isArray(data)) {
             quizQuestions = data;
         } else if (
             Array.isArray(data.questions)
         ) {
             quizQuestions =
                 data.questions;
+        } else {
+            quizQuestions = [];
         }
 
         currentQuizIndex = 0;
         quizScore = 0;
+        quizAnswered = false;
 
         renderQuiz();
 
     } catch (error) {
-
         console.error(
             "SENTINEL quiz error:",
             error
@@ -1468,7 +1637,6 @@ async function loadQuiz() {
 }
 
 function renderQuiz() {
-
     const questionBox =
         $("quiz-question");
 
@@ -1485,10 +1653,7 @@ function renderQuiz() {
         return;
     }
 
-    if (
-        !quizQuestions.length
-    ) {
-
+    if (!quizQuestions.length) {
         questionBox.textContent =
             "No quiz questions available.";
 
@@ -1501,7 +1666,6 @@ function renderQuiz() {
         currentQuizIndex >=
         quizQuestions.length
     ) {
-
         questionBox.textContent =
             "Quiz complete!";
 
@@ -1511,6 +1675,8 @@ function renderQuiz() {
                 <strong>
                     ${quizScore}
                 </strong>
+                /
+                ${quizQuestions.length}
             </div>
         `;
 
@@ -1557,11 +1723,9 @@ function renderQuiz() {
             ".quiz-option"
         )
         .forEach(button => {
-
             button.addEventListener(
                 "click",
                 () => {
-
                     answerQuiz(
                         Number(
                             button.dataset.quizIndex
@@ -1578,7 +1742,6 @@ function renderQuiz() {
 }
 
 function answerQuiz(index) {
-
     if (quizAnswered) return;
 
     const question =
@@ -1590,12 +1753,36 @@ function answerQuiz(index) {
 
     quizAnswered = true;
 
-    const correct =
-        Number(
-            question.correct_answer ??
-            question.correct ??
-            question.answer
-        );
+    let correct =
+        question.correct_answer ??
+        question.correct ??
+        question.answer;
+
+    if (
+        typeof correct === "string" &&
+        !/^\d+$/.test(correct)
+    ) {
+        const options =
+            Array.isArray(question.options)
+                ? question.options
+                : [];
+
+        const found =
+            options.findIndex(
+                option =>
+                    String(option)
+                        .trim()
+                        .toLowerCase() ===
+                    correct
+                        .trim()
+                        .toLowerCase()
+            );
+
+        correct = found;
+    }
+
+    correct =
+        Number(correct);
 
     const optionButtons =
         document.querySelectorAll(
@@ -1604,13 +1791,11 @@ function answerQuiz(index) {
 
     optionButtons.forEach(
         button => {
-
             button.disabled = true;
         }
     );
 
     if (index === correct) {
-
         quizScore++;
 
         const selected =
@@ -1622,13 +1807,14 @@ function answerQuiz(index) {
             "correct"
         );
 
+        playSuccessSound();
+
         showToast(
             "Correct! Good cyber awareness.",
             "✓"
         );
 
     } else {
-
         const selected =
             document.querySelector(
                 `[data-quiz-index="${index}"]`
@@ -1647,6 +1833,8 @@ function answerQuiz(index) {
             "correct"
         );
 
+        playDangerSound();
+
         showToast(
             "Wrong answer. Stay alert online!",
             "!"
@@ -1663,11 +1851,8 @@ function answerQuiz(index) {
 
     setTimeout(
         () => {
-
             currentQuizIndex++;
-
             renderQuiz();
-
         },
         900
     );
@@ -1683,51 +1868,32 @@ $("quiz-start")?.addEventListener(
     loadQuiz
 );
 
-
-/* =========================================================
-   INITIALIZATION
-========================================================= */
-
-document.addEventListener(
-    "DOMContentLoaded",
-    () => {
-
-        console.log(
-            "SENTINEL frontend initialized."
-        );
-
-        const progress =
-            $("website-progress");
-
-        if (progress) {
-            hide(progress);
-        }
-
-        const socialProgress =
-            $("social-progress");
-
-        if (socialProgress) {
-            hide(socialProgress);
-        }
-    }
-);
 /* =========================================================
    CYBER AI COPILOT
 ========================================================= */
 
+function getAIElements() {
+    return {
+        input:
+            $("ai-input") ||
+            $("chat-input"),
+
+        button:
+            $("ai-send-btn") ||
+            $("send-ai-btn"),
+
+        messages:
+            $("ai-chat-messages") ||
+            $("chat-messages")
+    };
+}
+
 async function sendAIMessage() {
-
-    const input =
-        $("ai-input") ||
-        $("chat-input");
-
-    const button =
-        $("ai-send-btn") ||
-        $("send-ai-btn");
-
-    const messages =
-        $("ai-chat-messages") ||
-        $("chat-messages");
+    const {
+        input,
+        button,
+        messages
+    } = getAIElements();
 
     if (!input) return;
 
@@ -1756,7 +1922,9 @@ async function sendAIMessage() {
     input.value = "";
 
     try {
-
+        /*
+         * Primary SENTINEL AI endpoint.
+         */
         const result =
             await postJSON(
                 "/api/ai-chat",
@@ -1767,10 +1935,16 @@ async function sendAIMessage() {
             );
 
         const reply =
-            result.reply ||
-            result.response ||
-            result.message ||
-            "I couldn't generate a response.";
+            result?.reply ||
+            result?.response ||
+            result?.message ||
+            result?.answer;
+
+        if (!reply) {
+            throw new Error(
+                "AI returned an empty response."
+            );
+        }
 
         appendAIMessage(
             messages,
@@ -1779,20 +1953,22 @@ async function sendAIMessage() {
         );
 
     } catch (error) {
-
         console.error(
             "SENTINEL AI error:",
             error
         );
 
+        /*
+         * Do not break the AI popup if the backend
+         * endpoint is unavailable.
+         */
         appendAIMessage(
             messages,
-            "I'm currently unable to connect to the cyber AI service. Please try again.",
+            "Cyber AI is temporarily unavailable. Please try again.",
             "ai"
         );
 
     } finally {
-
         if (button) {
             setButtonLoading(
                 button,
@@ -1807,7 +1983,6 @@ function appendAIMessage(
     text,
     type
 ) {
-
     if (!container) return;
 
     const message =
@@ -1817,7 +1992,7 @@ function appendAIMessage(
         `ai-message ${type}`;
 
     message.textContent =
-        text;
+        String(text ?? "");
 
     container.appendChild(
         message
@@ -1826,6 +2001,10 @@ function appendAIMessage(
     container.scrollTop =
         container.scrollHeight;
 }
+
+/* =========================================================
+   AI SEND BUTTONS
+========================================================= */
 
 $("ai-send-btn")?.addEventListener(
     "click",
@@ -1840,14 +2019,11 @@ $("send-ai-btn")?.addEventListener(
 $("ai-input")?.addEventListener(
     "keydown",
     event => {
-
         if (
             event.key === "Enter" &&
             !event.shiftKey
         ) {
-
             event.preventDefault();
-
             sendAIMessage();
         }
     }
@@ -1856,19 +2032,15 @@ $("ai-input")?.addEventListener(
 $("chat-input")?.addEventListener(
     "keydown",
     event => {
-
         if (
             event.key === "Enter" &&
             !event.shiftKey
         ) {
-
             event.preventDefault();
-
             sendAIMessage();
         }
     }
 );
-
 
 /* =========================================================
    AI BALL / CHAT POPUP
@@ -1881,31 +2053,34 @@ const aiPopup =
     $("ai-chat-popup");
 
 function toggleAIChat() {
-
     if (!aiPopup) return;
 
-    aiPopup.classList.toggle(
-        "open"
-    );
+    const isOpen =
+        aiPopup.classList.contains("open") ||
+        aiPopup.classList.contains("show");
 
-    aiPopup.classList.toggle(
+    if (isOpen) {
+        aiPopup.classList.remove(
+            "open",
+            "show"
+        );
+
+        return;
+    }
+
+    aiPopup.classList.add(
+        "open",
         "show"
     );
 
-    if (
-        aiPopup.classList.contains("open") ||
-        aiPopup.classList.contains("show")
-    ) {
+    const input =
+        $("ai-input") ||
+        $("chat-input");
 
-        const input =
-            $("ai-input") ||
-            $("chat-input");
-
-        setTimeout(
-            () => input?.focus(),
-            100
-        );
-    }
+    setTimeout(
+        () => input?.focus(),
+        100
+    );
 }
 
 aiBall?.addEventListener(
@@ -1916,7 +2091,6 @@ aiBall?.addEventListener(
 $("ai-close")?.addEventListener(
     "click",
     () => {
-
         aiPopup?.classList.remove(
             "open",
             "show"
@@ -1927,7 +2101,6 @@ $("ai-close")?.addEventListener(
 $("close-ai-chat")?.addEventListener(
     "click",
     () => {
-
         aiPopup?.classList.remove(
             "open",
             "show"
@@ -1935,13 +2108,11 @@ $("close-ai-chat")?.addEventListener(
     }
 );
 
-
 /* =========================================================
    AWARENESS SEARCH
 ========================================================= */
 
 function filterAwareness() {
-
     const input =
         $("awareness-search");
 
@@ -1958,7 +2129,6 @@ function filterAwareness() {
         );
 
     cards.forEach(card => {
-
         const text =
             card.textContent
                 .toLowerCase();
@@ -1976,7 +2146,6 @@ $("awareness-search")?.addEventListener(
     filterAwareness
 );
 
-
 /* =========================================================
    DASHBOARD COUNTERS
 ========================================================= */
@@ -1985,19 +2154,18 @@ function animateCounter(
     element,
     target
 ) {
-
     if (!element) return;
 
     const numericTarget =
         Number(target) || 0;
 
-    const duration = 900;
+    const duration =
+        900;
 
     const startTime =
         performance.now();
 
     function update(now) {
-
         const progress =
             Math.min(
                 1,
@@ -2032,10 +2200,7 @@ function animateCounter(
     );
 }
 
-function updateDashboard(
-    data
-) {
-
+function updateDashboard(data) {
     if (!data) return;
 
     const scans =
@@ -2050,30 +2215,21 @@ function updateDashboard(
         data.safe ??
         data.safe_scans;
 
-    if (
-        scans !== undefined
-    ) {
-
+    if (scans !== undefined) {
         animateCounter(
             $("dashboard-scans"),
             scans
         );
     }
 
-    if (
-        threats !== undefined
-    ) {
-
+    if (threats !== undefined) {
         animateCounter(
             $("dashboard-threats"),
             threats
         );
     }
 
-    if (
-        safe !== undefined
-    ) {
-
+    if (safe !== undefined) {
         animateCounter(
             $("dashboard-safe"),
             safe
@@ -2081,18 +2237,18 @@ function updateDashboard(
     }
 }
 
-
 /* =========================================================
    DASHBOARD LOAD
 ========================================================= */
 
 async function loadDashboard() {
-
     try {
-
         const response =
             await fetch(
-                "/dashboard"
+                "/dashboard",
+                {
+                    cache: "no-store"
+                }
             );
 
         if (!response.ok) {
@@ -2107,7 +2263,6 @@ async function loadDashboard() {
         );
 
     } catch (error) {
-
         console.warn(
             "Dashboard data unavailable:",
             error
@@ -2115,20 +2270,17 @@ async function loadDashboard() {
     }
 }
 
-
 /* =========================================================
    SYSTEM STATUS
 ========================================================= */
 
 async function checkSystemStatus() {
-
     const status =
         $("system-status");
 
     if (!status) return;
 
     try {
-
         const response =
             await fetch(
                 "/health",
@@ -2139,7 +2291,6 @@ async function checkSystemStatus() {
             );
 
         if (response.ok) {
-
             status.textContent =
                 "SYSTEM ONLINE";
 
@@ -2152,14 +2303,12 @@ async function checkSystemStatus() {
             );
 
         } else {
-
             throw new Error(
                 "Health check failed"
             );
         }
 
     } catch {
-
         status.textContent =
             "SYSTEM OFFLINE";
 
@@ -2173,13 +2322,11 @@ async function checkSystemStatus() {
     }
 }
 
-
 /* =========================================================
    NATIONAL CYBER CRIME HELPLINE
 ========================================================= */
 
 function callCyberCrimeHelpline() {
-
     window.location.href =
         "tel:1930";
 }
@@ -2194,7 +2341,6 @@ $("call-cyber-crime")?.addEventListener(
     callCyberCrimeHelpline
 );
 
-
 /* =========================================================
    EXTERNAL LINK SAFETY
 ========================================================= */
@@ -2204,7 +2350,6 @@ document
         'a[target="_blank"]'
     )
     .forEach(link => {
-
         const rel =
             link.getAttribute("rel") ||
             "";
@@ -2212,7 +2357,6 @@ document
         if (
             !rel.includes("noopener")
         ) {
-
             link.setAttribute(
                 "rel",
                 `${rel} noopener noreferrer`
@@ -2221,13 +2365,11 @@ document
         }
     });
 
-
 /* =========================================================
    SCROLL REVEAL
 ========================================================= */
 
 function initRevealAnimations() {
-
     const elements =
         document.querySelectorAll(
             ".reveal, [data-reveal]"
@@ -2238,10 +2380,8 @@ function initRevealAnimations() {
     if (
         !("IntersectionObserver" in window)
     ) {
-
         elements.forEach(
             element => {
-
                 element.classList.add(
                     "visible"
                 );
@@ -2254,14 +2394,11 @@ function initRevealAnimations() {
     const observer =
         new IntersectionObserver(
             entries => {
-
                 entries.forEach(
                     entry => {
-
                         if (
                             entry.isIntersecting
                         ) {
-
                             entry.target.classList.add(
                                 "visible"
                             );
@@ -2284,13 +2421,11 @@ function initRevealAnimations() {
     );
 }
 
-
 /* =========================================================
    ACTIVE NAVIGATION
 ========================================================= */
 
 function initActiveNavigation() {
-
     const sections =
         document.querySelectorAll(
             "section[id]"
@@ -2317,10 +2452,8 @@ function initActiveNavigation() {
     const observer =
         new IntersectionObserver(
             entries => {
-
                 entries.forEach(
                     entry => {
-
                         if (
                             !entry.isIntersecting
                         ) {
@@ -2332,7 +2465,6 @@ function initActiveNavigation() {
 
                         links.forEach(
                             link => {
-
                                 const active =
                                     link.getAttribute(
                                         "href"
@@ -2360,13 +2492,11 @@ function initActiveNavigation() {
     );
 }
 
-
 /* =========================================================
    BACK TO TOP
 ========================================================= */
 
 function initBackToTop() {
-
     const button =
         $("back-to-top");
 
@@ -2375,7 +2505,6 @@ function initBackToTop() {
     window.addEventListener(
         "scroll",
         () => {
-
             button.classList.toggle(
                 "show",
                 window.scrollY > 500
@@ -2389,7 +2518,6 @@ function initBackToTop() {
     button.addEventListener(
         "click",
         () => {
-
             window.scrollTo({
                 top: 0,
                 behavior: "smooth"
@@ -2398,7 +2526,6 @@ function initBackToTop() {
     );
 }
 
-
 /* =========================================================
    PAGE INITIALIZATION
 ========================================================= */
@@ -2406,7 +2533,6 @@ function initBackToTop() {
 document.addEventListener(
     "DOMContentLoaded",
     () => {
-
         console.log(
             "SENTINEL frontend initialized."
         );
@@ -2420,12 +2546,6 @@ document.addEventListener(
         checkSystemStatus();
 
         loadDashboard();
-
-        /*
-         * Do not repeatedly poll the backend.
-         * A single health check keeps the frontend
-         * lightweight and avoids unnecessary requests.
-         */
 
         const websiteProgress =
             $("website-progress");
@@ -2443,7 +2563,6 @@ document.addEventListener(
     }
 );
 
-
 /* =========================================================
    GLOBAL ERROR HANDLING
 ========================================================= */
@@ -2451,7 +2570,6 @@ document.addEventListener(
 window.addEventListener(
     "error",
     event => {
-
         console.error(
             "SENTINEL frontend error:",
             event.error ||
@@ -2463,7 +2581,6 @@ window.addEventListener(
 window.addEventListener(
     "unhandledrejection",
     event => {
-
         console.error(
             "SENTINEL unhandled promise rejection:",
             event.reason
@@ -2471,20 +2588,26 @@ window.addEventListener(
     }
 );
 
-
 /* =========================================================
    SENTINEL READY
 ========================================================= */
 
 window.SENTINEL = {
-    version: "2.0",
+    version: "2.1",
+
     scanWebsite,
     scanMessage,
+
     analyzeSocialProfile,
     analyzeSocialScreenshot,
+
     sendAIMessage,
+
     loadDashboard,
-    checkSystemStatus
+    checkSystemStatus,
+
+    playDangerSound,
+    playSuccessSound
 };
 
 console.log(
